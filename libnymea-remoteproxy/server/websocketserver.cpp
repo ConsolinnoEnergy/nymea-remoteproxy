@@ -64,7 +64,7 @@ void WebSocketServer::sendData(const QUuid &clientId, const QByteArray &data)
     client = m_clientList.value(clientId);
     if (client) {
         qCDebug(dcWebSocketServerTraffic()) << "--> Sending data to client:" << data;
-        client->sendTextMessage(data + '\n');
+        client->sendTextMessage(data);
     } else {
         qCWarning(dcWebSocketServer()) << "Client" << clientId << "unknown to this transport";
     }
@@ -77,6 +77,7 @@ void WebSocketServer::killClientConnection(const QUuid &clientId, const QString 
         return;
 
     qCWarning(dcWebSocketServer()) << "Killing client connection" << clientId.toString() << "Reason:" << killReason;
+    client->flush();
     client->close(QWebSocketProtocol::CloseCodeBadOperation, killReason);
 }
 
