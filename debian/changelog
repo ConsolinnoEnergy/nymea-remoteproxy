@@ -1,7 +1,10 @@
-nymea-remoteproxy (0.2.0) UNRELEASED; urgency=medium
+nymea-remoteproxy (0.2.0) xenial; urgency=medium
 
+  [ Simon Stürz ]
+  * Tcp server
+  * Introduce tunnel proxy
 
- -- Simon Stürz <simon.stuerz@nymea.io>  Tue, 27 Jul 2021 11:50:52 +0200
+ -- Jenkins <jenkins@nymea.io>  Thu, 03 Feb 2022 12:24:31 +0100
 
 nymea-remoteproxy (0.1.14) xenial; urgency=medium
 
