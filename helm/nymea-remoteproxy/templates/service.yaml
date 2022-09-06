@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nymea-remoteproxy.fullname" . }}
+  labels:
+    {{- include "nymea-remoteproxy.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: tcptunnelproxy
+      protocol: TCP
+      name: tcptunnelproxy
+    - port: 80
+      targetPort: wstunnelproxy
+      name: wstunnelproxy
+  selector:
+    {{- include "nymea-remoteproxy.selectorLabels" . | nindent 4 }}
