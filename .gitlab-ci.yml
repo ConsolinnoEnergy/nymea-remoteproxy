@@ -4,3 +4,5 @@ include:
     ref: main
   - local: '.gitlab/kube.yml'
 
+variables:
+  CUSTOM_BUILD_OPTIONS_BUSTER: "nocheck"
