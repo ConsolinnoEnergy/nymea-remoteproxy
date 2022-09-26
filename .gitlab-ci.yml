@@ -3,7 +3,7 @@ include:
     file: '/nymea/pipeline.yml'
     ref: main
 
-  - local: '.gitlab/kube.yml'
+  # - local: '.gitlab/kube.yml' TODO Dockerbuild funktioniert nicht mehr, Dockerbuild sollte nicht selbst cross-kompilieren sondern Binaries aus dem Repo ziehen
 
 variables:
   CUSTOM_BUILD_OPTIONS_BUSTER: "nocheck"
