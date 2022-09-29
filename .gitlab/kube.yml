@@ -12,10 +12,10 @@ build-docker-image:
       --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
       --destination "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_COMMIT_BRANCH == "pre-prod"
-    - if: $CI_COMMIT_BRANCH == "production"
-
+    - if: $CI_COMMIT_REF_NAME =~ /main/
+    - if: $CI_COMMIT_REF_NAME =~ /pre-prod/
+    - if: $CI_COMMIT_REF_NAME =~ /production/
+    
 deploy-nymea-remoteproxy:
   stage: deploy
   needs: ["build-docker-image"]
@@ -25,6 +25,8 @@ deploy-nymea-remoteproxy:
       helm upgrade --install
       -n hems-proxy
       --create-namespace nymea-remoteproxy $CI_PROJECT_DIR/helm/nymea-remoteproxy/
+      --set image.repository="${CI_REGISTRY_IMAGE}"
+      --set image.imageCredentials.registry="${CI_REGISTRY}"
       --set image.tag=${CI_COMMIT_SHORT_SHA}
       --set imageCredentials.username=${CI_DEPLOY_USER}
       --set imageCredentials.password=${CI_DEPLOY_PASSWORD}
