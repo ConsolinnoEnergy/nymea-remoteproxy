@@ -12,9 +12,9 @@ build-docker-image:
       --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
       --destination "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
   rules:
-    - if: $CI_COMMIT_REF_NAME =~ /main/
-    - if: $CI_COMMIT_REF_NAME =~ /pre-prod/
-    - if: $CI_COMMIT_REF_NAME =~ /production/
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "pre-prod"
+    - if: $CI_COMMIT_BRANCH == "production"
     
 deploy-nymea-remoteproxy:
   stage: deploy
@@ -33,13 +33,13 @@ deploy-nymea-remoteproxy:
       --set replicaCount=${REPLICAS}
       --set dnsname=${FQDN}
   rules:
-    - if: $CI_COMMIT_REF_NAME =~ /production/
+    - if: $CI_COMMIT_BRANCH == "production"
       variables:
         TARGET_ENVIRONMENT: k8s-services/master/production
-    - if: $CI_COMMIT_REF_NAME =~ /pre-prod/
+    - if: $CI_COMMIT_BRANCH == "pre-prod"
       variables:
         TARGET_ENVIRONMENT: k8s-services/qa/testing
-    - if: $CI_COMMIT_REF_NAME =~ /main/
+    - if: $CI_COMMIT_BRANCH == "main"
       variables:
         TARGET_ENVIRONMENT: k8s-services/test/experimental
   environment:
