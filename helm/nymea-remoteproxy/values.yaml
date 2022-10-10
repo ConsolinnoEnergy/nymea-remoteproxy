@@ -5,13 +5,13 @@
 replicaCount: 1
 
 image:
-  repository: registry.consolinno-it.de/leafletfirmware/nymea/nymea-remoteproxy-containerized
+  repository: registry.consolinno-it.de/leafletfirmware/nymea/nymea-remoteproxy
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
 imageCredentials:
-  registry: registry.consolinno-it.de/leafletfirmware/nymea/nymea-remoteproxy-containerized
+  registry: registry.consolinno-it.de/leafletfirmware/nymea/nymea-remoteproxy
   username: ""
   password: ""
 
@@ -47,10 +47,9 @@ service:
 
 resources:
   limits:
-    cpu: 100m
-    memory: 128Mi
+    memory: 256Mi
   requests:
-    cpu: 100m
+    cpu: 10m
     memory: 128Mi
 
 autoscaling:
