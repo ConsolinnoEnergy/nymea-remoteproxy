@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nymea-remoteproxy.fullname" . }}
+  labels:
+    {{- include "nymea-remoteproxy.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "nymea-remoteproxy.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "nymea-remoteproxy.selectorLabels" . | nindent 8 }}
+    spec:
+      imagePullSecrets:
+        - name: {{ .Release.Name }}-secret-dockercfg
+      serviceAccountName: {{ include "nymea-remoteproxy.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: wstunnelproxy
+              containerPort: {{ .Values.config.WebSocketServerTunnelProxy.port }}
+              protocol: TCP
+            - name: tcptunnelproxy
+              containerPort: {{ .Values.config.TcpServerTunnelProxy.port }}
+              protocol: TCP
+          volumeMounts:
+            - name: config-file-volume
+              mountPath: /config
+            - name: tls-secret-volume
+              mountPath:  /ssl
+          env:
+            - name: WORKAROUND_MISSING_LEAF_CERTIFICATE
+              value: {{ .Values.environment.workaround_missing_leaf_certificate | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config-file-volume
+          configMap:
+            name: {{ include "nymea-remoteproxy.fullname" . }}
+        - name: tls-secret-volume
+          secret:
+            secretName: {{ include "nymea-remoteproxy.fullname" . }}
+            optional: true
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
