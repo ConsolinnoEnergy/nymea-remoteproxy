@@ -21,6 +21,7 @@ deploy-nymea-remoteproxy:
   image: dtzar/helm-kubectl
   # zum Thema CI_DEPLOY_USER: siehe https://docs.gitlab.com/ee/user/project/deploy_tokens/
   script: 
+    - kubectl config use-context $K8S_AGENT
     - >
       helm upgrade --install
       -n hems-proxy

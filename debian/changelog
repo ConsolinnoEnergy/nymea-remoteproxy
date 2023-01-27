@@ -1,4 +1,25 @@
-nymea-remoteproxy (1.4.0-1) qa; urgency=medium
+nymea-remoteproxy (1.5.1-1) jammy; urgency=medium
+
+  * Software unchanged: Bumping Debian revision for Consolinno HEMS v0.2.2   
+
+ -- Leonhard Heizinger <l.heizinger@consolinno.de>  Wed, 14 Dec 2022 10:43:41 +0100
+
+nymea-remoteproxy (1.5.1) jammy; urgency=medium
+
+
+ -- jenkins <developer@nymea.io>  Mon, 07 Nov 2022 12:47:41 +0100
+
+nymea-remoteproxy (1.5.0) jammy; urgency=medium
+
+
+ -- jenkins <developer@nymea.io>  Mon, 17 Oct 2022 11:20:15 +0200
+
+nymea-remoteproxy (1.4.1) jammy; urgency=medium
+
+
+ -- jenkins <developer@nymea.io>  Fri, 23 Sep 2022 16:33:27 +0200
+
+nymea-remoteproxy (1.4.0) jammy; urgency=medium
 
 
  -- jenkins <developer@nymea.io>  Tue, 09 Aug 2022 23:02:56 +0200
