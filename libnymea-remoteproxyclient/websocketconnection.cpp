@@ -49,14 +49,9 @@ WebSocketConnection::~WebSocketConnection()
     m_webSocket->close();
 }
 
-QUrl WebSocketConnection::serverUrl() const
-{
-    return m_serverUrl;
-}
-
 void WebSocketConnection::sendData(const QByteArray &data)
 {
-    m_webSocket->sendTextMessage(QString::fromUtf8(data + '\n'));
+    m_webSocket->sendTextMessage(QString::fromUtf8(data));
 }
 
 void WebSocketConnection::ignoreSslErrors()
@@ -77,8 +72,8 @@ void WebSocketConnection::onDisconnected()
 
 void WebSocketConnection::onError(QAbstractSocket::SocketError error)
 {
-    qCDebug(dcRemoteProxyClientWebSocket()) << "Socket error occured" << error << m_webSocket->errorString();
-    emit errorOccured(error);
+    qCDebug(dcRemoteProxyClientWebSocket()) << "Socket error occurred" << error << m_webSocket->errorString();
+    emit errorOccurred(error);
 }
 
 void WebSocketConnection::onStateChanged(QAbstractSocket::SocketState state)
@@ -108,15 +103,15 @@ void WebSocketConnection::connectServer(const QUrl &serverUrl)
     if (connected()) {
         m_webSocket->close();
     }
-
     m_serverUrl = serverUrl;
+
     qCDebug(dcRemoteProxyClientWebSocket()) << "Connecting to" << m_serverUrl.toString();
-    m_webSocket->open(m_serverUrl);
+    m_webSocket->open(this->serverUrl());
 }
 
 void WebSocketConnection::disconnectServer()
 {
-    qCDebug(dcRemoteProxyClientWebSocket()) << "Disconnecting from" << serverUrl().toString();
+    qCDebug(dcRemoteProxyClientWebSocket()) << "Disconnecting from" << m_serverUrl.toString();
     m_webSocket->close();
 }
 

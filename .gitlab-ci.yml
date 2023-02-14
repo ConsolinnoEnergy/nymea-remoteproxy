@@ -1,0 +1,9 @@
+include:
+  - project: 'leafletfirmware/nymea/nymea-ci'
+    file: '/nymea/pipeline.yml'
+    ref: main
+
+  - local: '.gitlab/kube.yml'
+
+variables:
+  CUSTOM_BUILD_OPTIONS_BUSTER: "nocheck"

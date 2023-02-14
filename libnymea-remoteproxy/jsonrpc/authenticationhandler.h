@@ -35,6 +35,8 @@
 
 namespace remoteproxy {
 
+class TransportClient;
+
 class AuthenticationHandler : public JsonHandler
 {
     Q_OBJECT
@@ -44,14 +46,7 @@ public:
 
     QString name() const override;
 
-    Q_INVOKABLE JsonReply *Authenticate(const QVariantMap &params, ProxyClient *proxyClient);
-
-private:
-    QHash<AuthenticationReply *, JsonReply *> m_runningAuthentications;
-
-private slots:
-    void onAuthenticationFinished();
-
+    Q_INVOKABLE JsonReply *Authenticate(const QVariantMap &params, TransportClient *transportClient);
 
 };
 

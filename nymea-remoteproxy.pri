@@ -1,16 +1,6 @@
 QT *= network websockets
 QT -= gui
 
-# Define versions
-SERVER_NAME=nymea-remoteproxy
-API_VERSION_MAJOR=0
-API_VERSION_MINOR=3
-SERVER_VERSION=0.1.7
-
-DEFINES += SERVER_NAME_STRING=\\\"$${SERVER_NAME}\\\" \
-           SERVER_VERSION_STRING=\\\"$${SERVER_VERSION}\\\" \
-           API_VERSION_STRING=\\\"$${API_VERSION_MAJOR}.$${API_VERSION_MINOR}\\\"
-
 CONFIG += c++11 console
 
 QMAKE_CXXFLAGS *= -Werror -std=c++11 -g -Wno-deprecated-declarations
@@ -23,7 +13,7 @@ ccache {
     QMAKE_CXX = ccache g++
 }
 
-coverage {<
+coverage {
     # Note: this works only if you build in the source dir
     OBJECTS_DIR =
     MOC_DIR =

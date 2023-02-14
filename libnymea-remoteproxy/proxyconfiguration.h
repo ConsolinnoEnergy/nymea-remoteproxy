@@ -85,6 +85,9 @@ public:
     void setAwsCredentialsUrl(const QUrl &url);
 
     // Ssl
+    bool sslEnabled() const;
+    void setSslEnabled(bool enabled);
+
     QString sslCertificateFileName() const;
     void setSslCertificateFileName(const QString &fileName);
 
@@ -97,10 +100,10 @@ public:
     QSslConfiguration sslConfiguration() const;
 
     // WebSocketServer
-    QHostAddress webSocketServerHost() const;
+    QHostAddress webSocketServerProxyHost() const;
     void setWebSocketServerHost(const QHostAddress &address);
 
-    quint16 webSocketServerPort() const;
+    quint16 webSocketServerProxyPort() const;
     void setWebSocketServerPort(quint16 port);
 
     // TcpServer
@@ -109,6 +112,24 @@ public:
 
     quint16 tcpServerPort() const;
     void setTcpServerPort(quint16 port);
+
+    // UnixSocketServer
+    QString unixSocketFileName() const;
+    void setUnixSocketFileName(const QString &unixSocketFileName);
+
+    // WebSocketServer (tunnel)
+    QHostAddress webSocketServerTunnelProxyHost() const;
+    void setWebSocketServerTunnelProxyHost(const QHostAddress &address);
+
+    quint16 webSocketServerTunnelProxyPort() const;
+    void setWebSocketServerTunnelProxyPort(quint16 port);
+
+    // TcpServer (tunnel)
+    QHostAddress tcpServerTunnelProxyHost() const;
+    void setTcpServerTunnelProxyHost(const QHostAddress &address);
+
+    quint16 tcpServerTunnelProxyPort() const;
+    void setTcpServerTunnelProxyPort(quint16 port);
 
 private:
     // ProxyServer
@@ -130,18 +151,31 @@ private:
     QUrl m_awsCredentialsUrl;
 
     // Ssl
+    bool m_sslEnabled = true;
     QString m_sslCertificateFileName = "/etc/ssl/certs/ssl-cert-snakeoil.pem";
     QString m_sslCertificateKeyFileName = "/etc/ssl/private/ssl-cert-snakeoil.key";
     QString m_sslCertificateChainFileName;
     QSslConfiguration m_sslConfiguration;
 
-    // WebSocketServer
-    QHostAddress m_webSocketServerHost = QHostAddress::LocalHost;
-    quint16 m_webSocketServerPort = 1212;
+    // WebSocketServer (proxy)
+    QHostAddress m_webSocketServerProxyHost = QHostAddress::LocalHost;
+    quint16 m_webSocketServerProxyPort = 1212;
 
-    // TcpServer
+    // TcpServer (proxy)
     QHostAddress m_tcpServerHost = QHostAddress::LocalHost;
     quint16 m_tcpServerPort = 1213;
+
+    // UnixSocketServer (proxy)
+    QString m_unixSocketFileName = "/run/nymea-remoteproxy.socket";
+
+    // WebSocketServer (tunnel)
+    QHostAddress m_webSocketServerTunnelProxyHost = QHostAddress::LocalHost;
+    quint16 m_webSocketServerTunnelProxyPort = 2212;
+
+    // TcpServer (tunnel)
+    QHostAddress m_tcpServerTunnelProxyHost = QHostAddress::LocalHost;
+    quint16 m_tcpServerTunnelProxyPort = 2213;
+
 
 };
 

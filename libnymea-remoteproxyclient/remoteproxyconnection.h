@@ -69,6 +69,7 @@ public:
     Q_ENUM(State)
 
     explicit RemoteProxyConnection(const QUuid &clientUuid, const QString &clientName, QObject *parent = nullptr);
+    RemoteProxyConnection(const QUuid &clientUuid, const QString &clientName, ConnectionType connectionType, QObject *parent = nullptr);
     ~RemoteProxyConnection();
 
     RemoteProxyConnection::State state() const;
@@ -94,9 +95,9 @@ public:
     QString tunnelPartnerUuid() const;
 
 private:
-    ConnectionType m_connectionType = ConnectionTypeWebSocket;
     QUuid m_clientUuid;
     QString m_clientName;
+    ConnectionType m_connectionType = ConnectionTypeTcpSocket;
 
     QUrl m_serverUrl;
 
@@ -132,7 +133,7 @@ signals:
     void disconnected();
 
     void stateChanged(RemoteProxyConnection::State state);
-    void errorOccured(QAbstractSocket::SocketError error);
+    void errorOccurred(QAbstractSocket::SocketError error);
     void sslErrors(const QList<QSslError> &errors);
 
     void dataReady(const QByteArray &data);
@@ -152,6 +153,7 @@ public slots:
     bool authenticate(const QString &token, const QString &nonce = QString());
     void disconnectServer();
     bool sendData(const QByteArray &data);
+
 };
 
 }

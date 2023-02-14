@@ -27,6 +27,7 @@
 
 #include "proxyconnection.h"
 #include "proxyjsonrpcclient.h"
+#include "tcpsocketconnection.h"
 #include "websocketconnection.h"
 #include "remoteproxyconnection.h"
 
@@ -39,6 +40,15 @@ RemoteProxyConnection::RemoteProxyConnection(const QUuid &clientUuid, const QStr
     QObject(parent),
     m_clientUuid(clientUuid),
     m_clientName(clientName)
+{
+
+}
+
+RemoteProxyConnection::RemoteProxyConnection(const QUuid &clientUuid, const QString &clientName, RemoteProxyConnection::ConnectionType connectionType, QObject *parent) :
+    QObject(parent),
+    m_clientUuid(clientUuid),
+    m_clientName(clientName),
+    m_connectionType(connectionType)
 {
 
 }
@@ -182,8 +192,8 @@ void RemoteProxyConnection::setError(QAbstractSocket::SocketError error)
         return;
 
     m_error = error;
-    qCDebug(dcRemoteProxyClientConnection()) << "Error occured" << m_error;
-    emit errorOccured(m_error);
+    qCDebug(dcRemoteProxyClientConnection()) << "Error occurred" << m_error;
+    emit errorOccurred(m_error);
 }
 
 void RemoteProxyConnection::onConnectionChanged(bool isConnected)
@@ -309,31 +319,25 @@ void RemoteProxyConnection::onTunnelEstablished(const QString &clientName, const
 
 bool RemoteProxyConnection::connectServer(const QUrl &url)
 {
-    if (url.scheme() != "wss") {
-        // FIXME: support also tcp
-        qCWarning(dcRemoteProxyClientConnection()) << "Unsupported connection type" << url.scheme() << "Default to wss";
-        m_serverUrl.setScheme("wss");
-    }
-
     m_serverUrl = url;
-    m_connectionType = ConnectionTypeWebSocket;
     m_error = QAbstractSocket::UnknownSocketError;
 
     cleanUp();
 
     switch (m_connectionType) {
     case ConnectionTypeWebSocket:
+        qCDebug(dcRemoteProxyClientConnection()) << "Creating a web socket connection to" << url.toString();
         m_connection = qobject_cast<ProxyConnection *>(new WebSocketConnection(this));
         break;
     case ConnectionTypeTcpSocket:
-        // FIXME:
-        //m_connection = qobject_cast<ProxyConnection *>(new WebSocketConnection(this));
+        qCDebug(dcRemoteProxyClientConnection()) << "Creating a TCP socket connection to" << url.toString();
+        m_connection = qobject_cast<ProxyConnection *>(new TcpSocketConnection(this));
         break;
     }
 
     connect(m_connection, &ProxyConnection::connectedChanged, this, &RemoteProxyConnection::onConnectionChanged);
     connect(m_connection, &ProxyConnection::dataReceived, this, &RemoteProxyConnection::onConnectionDataAvailable);
-    connect(m_connection, &ProxyConnection::errorOccured, this, &RemoteProxyConnection::onConnectionSocketError);
+    connect(m_connection, &ProxyConnection::errorOccurred, this, &RemoteProxyConnection::onConnectionSocketError);
     connect(m_connection, &ProxyConnection::stateChanged, this, &RemoteProxyConnection::onConnectionStateChanged);
     connect(m_connection, &ProxyConnection::sslErrors, this, &RemoteProxyConnection::sslErrors);
 

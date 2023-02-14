@@ -25,7 +25,7 @@
 *
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#include "proxyclient.h"
+#include "proxy/proxyclient.h"
 #include "authenticator.h"
 #include "authenticationreply.h"
 
@@ -33,6 +33,11 @@ namespace remoteproxy {
 
 Authenticator::Authenticator(QObject *parent) :
     QObject(parent)
+{
+
+}
+
+Authenticator::~Authenticator()
 {
 
 }
@@ -50,11 +55,6 @@ void Authenticator::setReplyFinished(AuthenticationReply *reply)
 AuthenticationReply *Authenticator::createAuthenticationReply(ProxyClient *proxyClient, QObject *parent)
 {
     return new AuthenticationReply(proxyClient, parent);
-}
-
-Authenticator::~Authenticator()
-{
-
 }
 
 }

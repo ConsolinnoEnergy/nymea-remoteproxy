@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nymea-remoteproxy.fullname" . }}
+  labels:
+    {{- include "nymea-remoteproxy.labels" . | nindent 4 }}
+data:
+  nymea-remoteproxy.conf: |
+    [ProxyServer]
+{{- range $key, $value := .Values.config.ProxyServer }}
+{{- printf "\n%s=%s" $key (toString $value)  | indent 4}}
+{{- end }}
+    [AWS]
+{{- range $key, $value := .Values.config.AWS }}
+{{- printf "\n%s=%s" $key (toString $value)  | indent 4}}
+{{- end }}
+    [SSL]
+{{- range $key, $value := .Values.config.SSL }}
+{{- printf "\n%s=%s" $key (toString $value)  | indent 4}}
+{{- end }}
+    [WebSocketServer]
+{{- range $key, $value := .Values.config.WebSocketServer }}
+{{- printf "\n%s=%s" $key (toString $value)  | indent 4}}
+{{- end }}
+    [TcpServer]
+{{- range $key, $value := .Values.config.TcpServer }}
+{{- printf "\n%s=%s" $key (toString $value)  | indent 4}}
+{{- end }}
+    [WebSocketServerTunnelProxy]
+{{- range $key, $value := .Values.config.WebSocketServerTunnelProxy }}
+{{- printf "\n%s=%s" $key (toString $value)  | indent 4}}
+{{- end }}
+    [TcpServerTunnelProxy]
+{{- range $key, $value := .Values.config.TcpServerTunnelProxy }}
+{{- printf "\n%s=%s" $key (toString $value)  | indent 4}}
+{{- end }}

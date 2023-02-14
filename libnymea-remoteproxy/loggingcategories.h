@@ -1,6 +1,6 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 *
-*  Copyright 2013 - 2020, nymea GmbH
+*  Copyright 2013 - 2022, nymea GmbH
 *  Contact: contact@nymea.io
 *
 *  This file is part of nymea.
@@ -34,14 +34,21 @@
 Q_DECLARE_LOGGING_CATEGORY(dcApplication)
 Q_DECLARE_LOGGING_CATEGORY(dcEngine)
 Q_DECLARE_LOGGING_CATEGORY(dcJsonRpc)
+Q_DECLARE_LOGGING_CATEGORY(dcTunnel)
 Q_DECLARE_LOGGING_CATEGORY(dcJsonRpcTraffic)
 Q_DECLARE_LOGGING_CATEGORY(dcWebSocketServer)
 Q_DECLARE_LOGGING_CATEGORY(dcWebSocketServerTraffic)
+Q_DECLARE_LOGGING_CATEGORY(dcTcpSocketServer)
+Q_DECLARE_LOGGING_CATEGORY(dcTcpSocketServerTraffic)
 Q_DECLARE_LOGGING_CATEGORY(dcAuthentication)
 Q_DECLARE_LOGGING_CATEGORY(dcAuthenticationProcess)
 Q_DECLARE_LOGGING_CATEGORY(dcProxyServer)
 Q_DECLARE_LOGGING_CATEGORY(dcProxyServerTraffic)
+Q_DECLARE_LOGGING_CATEGORY(dcTunnelProxyServer)
+Q_DECLARE_LOGGING_CATEGORY(dcTunnelProxyServerTraffic)
 Q_DECLARE_LOGGING_CATEGORY(dcMonitorServer)
+Q_DECLARE_LOGGING_CATEGORY(dcUnixSocketServer)
+Q_DECLARE_LOGGING_CATEGORY(dcUnixSocketServerTraffic)
 Q_DECLARE_LOGGING_CATEGORY(dcAwsCredentialsProvider)
 Q_DECLARE_LOGGING_CATEGORY(dcAwsCredentialsProviderTraffic)
 

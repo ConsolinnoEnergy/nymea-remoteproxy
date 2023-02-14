@@ -71,6 +71,7 @@ bool ProxyConfiguration::loadConfiguration(const QString &fileName)
     settings.endGroup();
 
     settings.beginGroup("SSL");
+    setSslEnabled(settings.value("enabled", true).toBool());
     setSslCertificateFileName(settings.value("certificate", "/etc/ssl/certs/ssl-cert-snakeoil.pem").toString());
     setSslCertificateKeyFileName(settings.value("certificateKey", "/etc/ssl/private/ssl-cert-snakeoil.key").toString());
     setSslCertificateChainFileName(settings.value("certificateChain", "").toString());
@@ -84,6 +85,20 @@ bool ProxyConfiguration::loadConfiguration(const QString &fileName)
     settings.beginGroup("TcpServer");
     setTcpServerHost(QHostAddress(settings.value("host", "127.0.0.1").toString()));
     setTcpServerPort(static_cast<quint16>(settings.value("port", 1213).toInt()));
+    settings.endGroup();
+
+    settings.beginGroup("UnixSocketServer");
+    setUnixSocketFileName(settings.value("unixSocketFileName", "/run/nymea-remoteproxy.socket").toString());
+    settings.endGroup();
+
+    settings.beginGroup("WebSocketServerTunnelProxy");
+    setWebSocketServerTunnelProxyHost(QHostAddress(settings.value("host", "127.0.0.1").toString()));
+    setWebSocketServerTunnelProxyPort(static_cast<quint16>(settings.value("port", 2212).toInt()));
+    settings.endGroup();
+
+    settings.beginGroup("TcpServerTunnelProxy");
+    setTcpServerTunnelProxyHost(QHostAddress(settings.value("host", "127.0.0.1").toString()));
+    setTcpServerTunnelProxyPort(static_cast<quint16>(settings.value("port", 2213).toInt()));
     settings.endGroup();
 
     // Load SSL configuration
@@ -256,6 +271,16 @@ void ProxyConfiguration::setAwsCredentialsUrl(const QUrl &url)
     m_awsCredentialsUrl = url;
 }
 
+bool ProxyConfiguration::sslEnabled() const
+{
+    return m_sslEnabled;
+}
+
+void ProxyConfiguration::setSslEnabled(bool enabled)
+{
+    m_sslEnabled = enabled;
+}
+
 QString ProxyConfiguration::sslCertificateFileName() const
 {
     return m_sslCertificateFileName;
@@ -291,24 +316,24 @@ QSslConfiguration ProxyConfiguration::sslConfiguration() const
     return m_sslConfiguration;
 }
 
-QHostAddress ProxyConfiguration::webSocketServerHost() const
+QHostAddress ProxyConfiguration::webSocketServerProxyHost() const
 {
-    return m_webSocketServerHost;
+    return m_webSocketServerProxyHost;
 }
 
 void ProxyConfiguration::setWebSocketServerHost(const QHostAddress &address)
 {
-    m_webSocketServerHost = address;
+    m_webSocketServerProxyHost = address;
 }
 
-quint16 ProxyConfiguration::webSocketServerPort() const
+quint16 ProxyConfiguration::webSocketServerProxyPort() const
 {
-    return m_webSocketServerPort;
+    return m_webSocketServerProxyPort;
 }
 
 void ProxyConfiguration::setWebSocketServerPort(quint16 port)
 {
-    m_webSocketServerPort = port;
+    m_webSocketServerProxyPort = port;
 }
 
 QHostAddress ProxyConfiguration::tcpServerHost() const
@@ -331,6 +356,56 @@ void ProxyConfiguration::setTcpServerPort(quint16 port)
     m_tcpServerPort = port;
 }
 
+QString ProxyConfiguration::unixSocketFileName() const
+{
+    return m_unixSocketFileName;
+}
+
+void ProxyConfiguration::setUnixSocketFileName(const QString &unixSocketFileName)
+{
+    m_unixSocketFileName = unixSocketFileName;
+}
+
+QHostAddress ProxyConfiguration::webSocketServerTunnelProxyHost() const
+{
+    return m_webSocketServerTunnelProxyHost;
+}
+
+void ProxyConfiguration::setWebSocketServerTunnelProxyHost(const QHostAddress &address)
+{
+    m_webSocketServerTunnelProxyHost = address;
+}
+
+quint16 ProxyConfiguration::webSocketServerTunnelProxyPort() const
+{
+    return m_webSocketServerTunnelProxyPort;
+}
+
+void ProxyConfiguration::setWebSocketServerTunnelProxyPort(quint16 port)
+{
+    m_webSocketServerTunnelProxyPort = port;
+}
+
+QHostAddress ProxyConfiguration::tcpServerTunnelProxyHost() const
+{
+    return m_tcpServerTunnelProxyHost;
+}
+
+void ProxyConfiguration::setTcpServerTunnelProxyHost(const QHostAddress &address)
+{
+    m_tcpServerTunnelProxyHost = address;
+}
+
+quint16 ProxyConfiguration::tcpServerTunnelProxyPort() const
+{
+    return m_tcpServerTunnelProxyPort;
+}
+
+void ProxyConfiguration::setTcpServerTunnelProxyPort(quint16 port)
+{
+    m_tcpServerTunnelProxyPort = port;
+}
+
 QDebug operator<<(QDebug debug, ProxyConfiguration *configuration)
 {
     debug.nospace() << endl << "========== ProxyConfiguration ==========" << endl;
@@ -349,6 +424,7 @@ QDebug operator<<(QDebug debug, ProxyConfiguration *configuration)
     debug.nospace() << "  - Authorizer lambda function:" << configuration->awsAuthorizerLambdaFunctionName() << endl;
     debug.nospace() << "  - Credentials URL:" << configuration->awsCredentialsUrl().toString() << endl;
     debug.nospace() << "SSL configuration" << endl;
+    debug.nospace() << "  - Enabled:" << configuration->sslEnabled() << endl;
     debug.nospace() << "  - Certificate:" << configuration->sslCertificateFileName() << endl;
     debug.nospace() << "  - Certificate key:" << configuration->sslCertificateKeyFileName() << endl;
     debug.nospace() << "  - Certificate chain:" << configuration->sslCertificateChainFileName() << endl;
@@ -368,12 +444,20 @@ QDebug operator<<(QDebug debug, ProxyConfiguration *configuration)
     debug.nospace() << "      Locality name:" << configuration->sslConfiguration().localCertificate().issuerInfo(QSslCertificate::LocalityName) << endl;
     debug.nospace() << "      State/Province:" << configuration->sslConfiguration().localCertificate().issuerInfo(QSslCertificate::StateOrProvinceName) << endl;
     debug.nospace() << "      Email address:" << configuration->sslConfiguration().localCertificate().issuerInfo(QSslCertificate::EmailAddress) << endl;
-    debug.nospace() << "WebSocketServer configuration" << endl;
-    debug.nospace() << "  - Host:" << configuration->webSocketServerHost().toString() << endl;
-    debug.nospace() << "  - Port:" << configuration->webSocketServerPort() << endl;
-    debug.nospace() << "TcpServer" << endl;
+    debug.nospace() << "WebSocketServer Proxy" << endl;
+    debug.nospace() << "  - Host:" << configuration->webSocketServerProxyHost().toString() << endl;
+    debug.nospace() << "  - Port:" << configuration->webSocketServerProxyPort() << endl;
+    debug.nospace() << "TcpServer Proxy" << endl;
     debug.nospace() << "  - Host:" << configuration->tcpServerHost().toString() << endl;
     debug.nospace() << "  - Port:" << configuration->tcpServerPort() << endl;
+    debug.nospace() << "UnixSocketServer Proxy" << endl;
+    debug.nospace() << "  - Filename:" << configuration->unixSocketFileName() << endl;
+    debug.nospace() << "WebSocketServer TunnelProxy" << endl;
+    debug.nospace() << "  - Host:" << configuration->webSocketServerTunnelProxyHost().toString() << endl;
+    debug.nospace() << "  - Port:" << configuration->webSocketServerTunnelProxyPort() << endl;
+    debug.nospace() << "TcpServer TunnelProxy" << endl;
+    debug.nospace() << "  - Host:" << configuration->tcpServerTunnelProxyHost().toString() << endl;
+    debug.nospace() << "  - Port:" << configuration->tcpServerTunnelProxyPort() << endl;
     debug.nospace() << "========== ProxyConfiguration ==========";
     return debug;
 }

@@ -28,8 +28,10 @@
 #ifndef SOCKETCONNECTOR_H
 #define SOCKETCONNECTOR_H
 
+#include <QUrl>
 #include <QObject>
 #include <QSslError>
+#include <QSslConfiguration>
 #include <QHostAddress>
 
 namespace remoteproxyclient {
@@ -43,7 +45,7 @@ public:
 
     virtual void sendData(const QByteArray &data) = 0;
 
-    virtual QUrl serverUrl() const = 0;
+    QUrl serverUrl() const;
 
     virtual void ignoreSslErrors() = 0;
     virtual void ignoreSslErrors(const QList<QSslError> &errors) = 0;
@@ -54,6 +56,8 @@ private:
     bool m_connected = false;
 
 protected:
+    QUrl m_serverUrl;
+
     void setConnected(bool connected);
 
 signals:
@@ -61,7 +65,7 @@ signals:
     void dataReceived(const QByteArray &data);
 
     void stateChanged(QAbstractSocket::SocketState state);
-    void errorOccured(QAbstractSocket::SocketError error);
+    void errorOccurred(QAbstractSocket::SocketError error);
 
     void sslErrors(const QList<QSslError> &errors);
 

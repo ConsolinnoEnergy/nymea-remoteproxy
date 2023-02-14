@@ -34,6 +34,11 @@ ProxyConnection::ProxyConnection(QObject *parent) : QObject(parent)
 
 }
 
+QUrl ProxyConnection::serverUrl() const
+{
+    return m_serverUrl;
+}
+
 bool ProxyConnection::connected()
 {
     return m_connected;
