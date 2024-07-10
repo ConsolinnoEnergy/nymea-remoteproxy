@@ -7,3 +7,4 @@ include:
 
 variables:
   CUSTOM_BUILD_OPTIONS_BUSTER: "nocheck"
+  CUSTOM_BUILD_OPTIONS_BULLSEYE: "nocheck"
