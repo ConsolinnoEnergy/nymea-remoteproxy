@@ -1,4 +1,4 @@
-nymea-remoteproxy (1.7.001) jammy; urgency=medium
+nymea-remoteproxy (1.7.001-1) jammy; urgency=medium
   
   * Adjust debug output of remoteproxy server in k8s deployment
 
