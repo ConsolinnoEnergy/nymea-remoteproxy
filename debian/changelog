@@ -1,3 +1,10 @@
+nymea-remoteproxy (1.7.001-1) jammy; urgency=medium
+  
+  * Adjust debug output of remoteproxy server in k8s deployment
+
+ -- Leonhard Heizinger <l.heizinger@consolinno.de>  Wed, 13 Nov 2024 14:58:56 +0100
+
+
 nymea-remoteproxy (1.7.0-4) jammy; urgency=medium
 
 
