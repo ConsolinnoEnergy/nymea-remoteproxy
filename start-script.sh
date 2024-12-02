@@ -12,4 +12,7 @@ if [ "$WORKAROUND_MISSING_LEAF_CERTIFICATE" == "yes" ]; then
 		'{*}'
 fi
 
+# disable debug logging for qt 5
+export QT_LOGGING_RULES="*.debug=false"
+
 nymea-remoteproxy -c /config/nymea-remoteproxy.conf -m
