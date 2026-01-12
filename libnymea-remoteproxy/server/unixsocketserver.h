@@ -30,6 +30,7 @@
 
 #include <QObject>
 #include <QUuid>
+#include <QHash>
 #include <QLocalServer>
 #include <QLocalSocket>
 
