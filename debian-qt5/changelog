@@ -1,3 +1,10 @@
+nymea-remoteproxy (1.14.0) noble; urgency=medium
+
+  [ Simon Stürz ]
+  * UnixSocketServer: Fix missing include in the
+
+ -- jenkins <developer@nymea.io>  Thu, 15 Jan 2026 15:28:42 +0100
+
 nymea-remoteproxy (1.13.0) jammy; urgency=medium
 
   [ Simon Stürz ]
