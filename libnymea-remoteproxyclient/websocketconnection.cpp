@@ -56,12 +56,16 @@ void WebSocketConnection::sendData(const QByteArray &data)
 
 void WebSocketConnection::ignoreSslErrors()
 {
+#ifndef Q_OS_WASM
     m_webSocket->ignoreSslErrors();
+#endif
 }
 
 void WebSocketConnection::ignoreSslErrors(const QList<QSslError> &errors)
 {
+#ifndef Q_OS_WASM
     m_webSocket->ignoreSslErrors(errors);
+#endif
 }
 
 void WebSocketConnection::onDisconnected()
