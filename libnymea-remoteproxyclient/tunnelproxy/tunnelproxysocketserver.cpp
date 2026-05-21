@@ -132,8 +132,10 @@ bool TunnelProxySocketServer::startServer(const QUrl &serverUrl)
         m_connection = qobject_cast<ProxyConnection *>(new WebSocketConnection(this));
         break;
     case ConnectionTypeTcpSocket:
+#ifndef Q_OS_WASM
         qCDebug(dcTunnelProxySocketServer()) << "Creating a TCP socket connection to" << m_serverUrl.toString();
         m_connection = qobject_cast<ProxyConnection *>(new TcpSocketConnection(this));
+#endif
         break;
     }
 

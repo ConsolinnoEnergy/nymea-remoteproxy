@@ -28,6 +28,8 @@
 #ifndef TCPSOCKETCONNECTION_H
 #define TCPSOCKETCONNECTION_H
 
+#ifndef Q_OS_WASM
+
 #include <QObject>
 #include <QTcpSocket>
 #include <QSslSocket>
@@ -70,5 +72,9 @@ public slots:
 };
 
 }
+
+}
+
+#endif // Q_OS_WASM
 
 #endif // TCPSOCKETCONNECTION_H

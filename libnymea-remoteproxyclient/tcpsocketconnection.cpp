@@ -27,6 +27,8 @@
 
 #include "tcpsocketconnection.h"
 
+#ifndef Q_OS_WASM
+
 Q_LOGGING_CATEGORY(dcRemoteProxyClientTcpSocket, "RemoteProxyClientTcpSocket")
 
 namespace remoteproxyclient {
@@ -140,3 +142,6 @@ void TcpSocketConnection::disconnectServer()
 }
 
 }
+
+
+#endif // Q_OS_WASM
