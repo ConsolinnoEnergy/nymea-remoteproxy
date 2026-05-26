@@ -128,6 +128,13 @@ bool TunnelProxyRemoteConnection::connectServer(const QUrl &url, const QUuid &se
         break;
     }
 
+    if (!m_connection) {
+        qCWarning(dcTunnelProxyRemoteConnection()) << "Could not create connection backend for" << url.toString();
+        setError(QAbstractSocket::UnsupportedSocketOperationError);
+        setState(StateDisconnected);
+        return false;
+    }
+
     connect(m_connection, &ProxyConnection::connectedChanged, this, &TunnelProxyRemoteConnection::onConnectionChanged);
     connect(m_connection, &ProxyConnection::dataReceived, this, &TunnelProxyRemoteConnection::onConnectionDataAvailable);
     connect(m_connection, &ProxyConnection::errorOccurred, this, &TunnelProxyRemoteConnection::onConnectionSocketError);

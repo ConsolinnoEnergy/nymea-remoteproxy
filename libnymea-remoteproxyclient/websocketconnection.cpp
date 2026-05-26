@@ -41,7 +41,9 @@ WebSocketConnection::WebSocketConnection(QObject *parent) :
 
     connect(m_webSocket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(onError(QAbstractSocket::SocketError)));
     connect(m_webSocket, SIGNAL(stateChanged(QAbstractSocket::SocketState)), this, SLOT(onStateChanged(QAbstractSocket::SocketState)));
+#ifndef Q_OS_WASM
     connect(m_webSocket, SIGNAL(sslErrors(QList<QSslError>)), this, SIGNAL(sslErrors(QList<QSslError>)));
+#endif
 }
 
 WebSocketConnection::~WebSocketConnection()
