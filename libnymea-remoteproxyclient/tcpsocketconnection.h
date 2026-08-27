@@ -73,8 +73,6 @@ public slots:
 
 }
 
-}
-
 #endif // Q_OS_WASM
 
 #endif // TCPSOCKETCONNECTION_H
