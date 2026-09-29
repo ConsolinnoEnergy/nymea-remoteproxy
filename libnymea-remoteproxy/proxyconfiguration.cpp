@@ -112,15 +112,19 @@ bool ProxyConfiguration::loadConfiguration(const QString &fileName)
 
     // SSL certificate chain
     if (!sslCertificateChainFileName().isEmpty()) {
-        QFile certChainFile(sslCertificateChainFileName());
-        if (!certChainFile.open(QIODevice::ReadOnly)) {
-            qCWarning(dcApplication()) << "Could not open certificate chain file:" << sslCertificateChainFileName() << certChainFile.errorString();
+        QList<QSslCertificate> chainCertificates = QSslCertificate::fromPath(sslCertificateChainFileName());
+        if (chainCertificates.isEmpty()) {
+            qCWarning(dcApplication()) << "Could not find any certificates in chain file:" << sslCertificateChainFileName();
             return false;
         }
-        QSslCertificate certificate(&certChainFile, QSsl::Pem);
-        sslConfiguration.setCaCertificates( QList<QSslCertificate>() << certificate );
-        certChainFile.close();
-        qCDebug(dcApplication()) << "Loaded successfully certificate chain" << sslCertificateKeyFileName();
+        // Lokale Server-Kette: Leaf zuerst, dann die Zwischenzertifikate.
+        // Nur so sendet der Server die komplette Kette (inkl. cross-signed
+        // Root-Varianten) an die Clients.
+        QList<QSslCertificate> localCertificateChain;
+        localCertificateChain.append(sslConfiguration.localCertificate());
+        localCertificateChain.append(chainCertificates);
+        sslConfiguration.setLocalCertificateChain(localCertificateChain);
+        qCDebug(dcApplication()) << "Loaded" << chainCertificates.count() << "certificates from chain file" << sslCertificateChainFileName();
     }
 
     m_sslConfiguration = sslConfiguration;
