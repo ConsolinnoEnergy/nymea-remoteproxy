@@ -62,7 +62,11 @@ public:
     // Client
     Q_INVOKABLE JsonReply *RegisterClient(const QVariantMap &params, TransportClient *transportClient);
 #endif
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    Q_INVOKABLE remoteproxy::JsonReply *RegisterServerWithToken(const QVariantMap &params, TransportClient *transportClient);
+#else
     Q_INVOKABLE JsonReply *RegisterServerWithToken(const QVariantMap &params, TransportClient *transportClient);
+#endif
 signals:
     void ClientConnected(const QVariantMap &params, TransportClient *transportClient);
     void ClientDisconnected(const QVariantMap &params, TransportClient *transportClient);
