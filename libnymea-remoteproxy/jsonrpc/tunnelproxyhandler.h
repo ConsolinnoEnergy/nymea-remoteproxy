@@ -47,12 +47,15 @@ public:
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     // Server
-    Q_INVOKABLE remoteproxy::JsonReply *RegisterServer(const QVariantMap &params, TransportClient *transportClient);
-    Q_INVOKABLE remoteproxy::JsonReply *DisconnectClient(const QVariantMap &params, TransportClient *transportClient);
-    Q_INVOKABLE remoteproxy::JsonReply *Ping(const QVariantMap &params, TransportClient *transportClient);
+    // Wichtig: unqualifizierte Typen wie im Qt5-Branch. Mit "remoteproxy::"
+    // Qualifizierung veraendert moc die Methoden-Signatur ("...remoteproxy::TransportClient*")
+    // und der JSON-RPC-Server findet die Methode nicht mehr ("No such method").
+    Q_INVOKABLE JsonReply *RegisterServer(const QVariantMap &params, TransportClient *transportClient);
+    Q_INVOKABLE JsonReply *DisconnectClient(const QVariantMap &params, TransportClient *transportClient);
+    Q_INVOKABLE JsonReply *Ping(const QVariantMap &params, TransportClient *transportClient);
 
     // Client
-    Q_INVOKABLE remoteproxy::JsonReply *RegisterClient(const QVariantMap &params, TransportClient *transportClient);
+    Q_INVOKABLE JsonReply *RegisterClient(const QVariantMap &params, TransportClient *transportClient);
 #else
     // Server
     Q_INVOKABLE JsonReply *RegisterServer(const QVariantMap &params, TransportClient *transportClient);

@@ -42,8 +42,16 @@ namespace remoteproxy {
 JsonRpcServer::JsonRpcServer(QObject *parent) :
     JsonHandler(parent)
 {
-
-    //qRegisterMetaType<JsonReply*>();
+    // Qt6: QMetaObject::invokeMethod (string-basiert) loest Parameter- und
+    // Return-Typen ueber QMetaType auf. moc generiert die Signatur der
+    // Q_INVOKABLE-Methoden mit den unqualifizierten Namen aus dem Header
+    // ("TransportClient*", "JsonReply*"), die Metatype-Namen sind aber
+    // namespace-qualifiziert ("remoteproxy::TransportClient*"). Ohne explizite
+    // Alias-Registrierung unter dem unqualifizierten Namen lautet der
+    // Parameter-Metatype (null) und der Aufruf scheitert mit
+    // "No such method ... Candidates are: <identische Signatur>".
+    qRegisterMetaType<JsonReply *>("JsonReply*");
+    qRegisterMetaType<TransportClient *>("TransportClient*");
 
     // Methods
     QVariantMap params; QVariantMap returns;
@@ -260,10 +268,17 @@ void JsonRpcServer::processDataPacket(TransportClient *transportClient, const QB
 
     JsonReply *reply = nullptr;
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    // Wichtig: string-basiertes invokeMethod mit Q_ARG (wie im Qt5-Branch).
+    // Die Qt6-variadic-Form (qReturnArg, Rohargumente) sucht die Methode
+    // ueber Metatype-Namen mit Namespace-Qualifizierung
+    // ("RegisterServer(QVariantMap,remoteproxy::TransportClient*)"), waehrend
+    // moc die deklarierte (unqualifizierte) Signatur registriert -> "No such
+    // method".
     bool invokedSuccessfully = QMetaObject::invokeMethod(handler, method.toLatin1().constData(),
                                                          Qt::DirectConnection,
-                                                         qReturnArg(reply),
-                                                         params, transportClient);
+                                                         Q_RETURN_ARG(JsonReply *, reply),
+                                                         Q_ARG(QVariantMap, params),
+                                                         Q_ARG(TransportClient*, transportClient));
 
     if (!invokedSuccessfully) {
         qCWarning(dcJsonRpc()) << "Failed to invoke method" << handler << method;
