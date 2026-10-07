@@ -11,6 +11,7 @@ Build-depends: debhelper,
                qtbase5-dev,
                qtbase5-dev-tools,
                libqt5websockets5-dev,
+               libssl-dev,
                libncurses5-dev
 
 

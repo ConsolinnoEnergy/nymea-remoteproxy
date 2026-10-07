@@ -62,6 +62,7 @@ public:
     // Client
     Q_INVOKABLE JsonReply *RegisterClient(const QVariantMap &params, TransportClient *transportClient);
 #endif
+    Q_INVOKABLE JsonReply *RegisterServerWithToken(const QVariantMap &params, TransportClient *transportClient);
 signals:
     void ClientConnected(const QVariantMap &params, TransportClient *transportClient);
     void ClientDisconnected(const QVariantMap &params, TransportClient *transportClient);

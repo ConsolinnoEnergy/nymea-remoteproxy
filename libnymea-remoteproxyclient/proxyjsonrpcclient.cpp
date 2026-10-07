@@ -65,6 +65,20 @@ JsonReply *JsonRpcClient::callRegisterServer(const QUuid &serverUuid, const QStr
     return reply;
 }
 
+JsonReply *JsonRpcClient::callRegisterServerWithToken(const QUuid &serverUuid, const QString &serverName, const QString &token)
+{
+    QVariantMap params;
+    params.insert("serverName", serverName);
+    params.insert("serverUuid", serverUuid.toString());
+    params.insert("token", token);
+
+    JsonReply *reply = new JsonReply(m_commandId, "TunnelProxy", "RegisterServerWithToken", params, this);
+    qCDebug(dcRemoteProxyClientJsonRpc()) << "Calling" << QString("%1.%2").arg(reply->nameSpace()).arg(reply->method());
+    sendRequest(reply->requestMap());
+    m_replies.insert(m_commandId, reply);
+    return reply;
+}
+
 JsonReply *JsonRpcClient::callRegisterClient(const QUuid &clientUuid, const QString &clientName, const QUuid &serverUuid)
 {
     QVariantMap params;

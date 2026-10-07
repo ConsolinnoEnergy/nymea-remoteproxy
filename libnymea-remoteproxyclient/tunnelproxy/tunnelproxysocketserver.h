@@ -37,6 +37,8 @@
 
 #include "tunnelproxysocket.h"
 
+class QProcess;
+
 Q_DECLARE_LOGGING_CATEGORY(dcTunnelProxySocketServer)
 Q_DECLARE_LOGGING_CATEGORY(dcTunnelProxySocketServerTraffic)
 
@@ -166,6 +168,7 @@ private:
     void setRunning(bool running);
     void setError(QAbstractSocket::SocketError error);
     void setServerError(Error error);
+    void onTokenProcessFailed(QProcess *process, const QString &reason);
 
     void cleanUp();
 };

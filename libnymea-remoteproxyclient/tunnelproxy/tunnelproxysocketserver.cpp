@@ -32,6 +32,9 @@
 #include "proxyjsonrpcclient.h"
 #include "../../common/slipdataprocessor.h"
 
+#include <QFileInfo>
+#include <QProcess>
+
 Q_LOGGING_CATEGORY(dcTunnelProxySocketServer, "TunnelProxySocketServer")
 Q_LOGGING_CATEGORY(dcTunnelProxySocketServerTraffic, "TunnelProxySocketServerTraffic")
 
@@ -287,8 +290,50 @@ void TunnelProxySocketServer::onHelloFinished()
 
     setState(StateRegister);
 
-    JsonReply *registerReply = m_jsonClient->callRegisterServer(m_serverUuid, m_serverName);
-    connect(registerReply, &JsonReply::finished, this, &TunnelProxySocketServer::onServerRegistrationFinished);
+    const QString tokenScriptPath = QStringLiteral("/usr/bin/get_token");
+    if (!QFileInfo(tokenScriptPath).exists()) {
+        JsonReply *registerReply = m_jsonClient->callRegisterServer(m_serverUuid, m_serverName);
+        connect(registerReply, &JsonReply::finished, this, &TunnelProxySocketServer::onServerRegistrationFinished);
+        return;
+    }
+
+    QProcess *tokenProcess = new QProcess(this);
+    tokenProcess->setObjectName(QStringLiteral("registrationTokenProcess"));
+    connect(tokenProcess, &QProcess::errorOccurred, this, [this, tokenProcess](QProcess::ProcessError) {
+        onTokenProcessFailed(tokenProcess, tokenProcess->errorString());
+    });
+    connect(tokenProcess, static_cast<void (QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished), this,
+            [this, tokenProcess](int exitCode, QProcess::ExitStatus exitStatus) {
+        if (findChild<QProcess *>(QStringLiteral("registrationTokenProcess")) != tokenProcess) {
+            return;
+        }
+        if (exitStatus != QProcess::NormalExit || exitCode != 0) {
+            onTokenProcessFailed(tokenProcess, QStringLiteral("Token script exited unsuccessfully"));
+            return;
+        }
+
+        const QString token = QString::fromUtf8(tokenProcess->readAllStandardOutput()).trimmed();
+        if (token.isEmpty()) {
+            onTokenProcessFailed(tokenProcess, QStringLiteral("Token script returned an empty token"));
+            return;
+        }
+
+        tokenProcess->setObjectName(QString());
+        tokenProcess->deleteLater();
+        if (!m_enabled || m_state != StateRegister) {
+            return;
+        }
+
+        JsonReply *registerReply = m_jsonClient->callRegisterServerWithToken(m_serverUuid, m_serverName, token);
+        connect(registerReply, &JsonReply::finished, this, &TunnelProxySocketServer::onServerRegistrationFinished);
+    });
+    tokenProcess->start(tokenScriptPath);
+    QTimer::singleShot(10000, tokenProcess, [this, tokenProcess]() {
+        if (findChild<QProcess *>(QStringLiteral("registrationTokenProcess")) == tokenProcess
+                && tokenProcess->state() != QProcess::NotRunning) {
+            tokenProcess->kill();
+        }
+    });
 }
 
 void TunnelProxySocketServer::onServerRegistrationFinished()
@@ -445,6 +490,22 @@ void TunnelProxySocketServer::setServerError(Error error)
     emit serverErrorOccurred(m_serverError);
 }
 
+void TunnelProxySocketServer::onTokenProcessFailed(QProcess *process, const QString &reason)
+{
+    if (findChild<QProcess *>(QStringLiteral("registrationTokenProcess")) != process) {
+        return;
+    }
+
+    process->kill();
+    process->setObjectName(QString());
+    process->deleteLater();
+    qCWarning(dcTunnelProxySocketServer()) << "Could not obtain a registration token:" << reason;
+    if (m_connection) {
+        m_connection->disconnectServer();
+    }
+    setServerError(ErrorConnectionError);
+}
+
 void TunnelProxySocketServer::cleanUp()
 {
     foreach (quint16 socketAddress, m_tunnelProxySockets.keys()) {
@@ -454,6 +515,13 @@ void TunnelProxySocketServer::cleanUp()
     if (m_jsonClient) {
         m_jsonClient->deleteLater();
         m_jsonClient = nullptr;
+    }
+
+    QProcess *tokenProcess = findChild<QProcess *>(QStringLiteral("registrationTokenProcess"));
+    if (tokenProcess) {
+        tokenProcess->kill();
+        tokenProcess->setObjectName(QString());
+        tokenProcess->deleteLater();
     }
 
     if (m_connection) {

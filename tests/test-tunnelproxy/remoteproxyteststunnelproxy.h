@@ -62,6 +62,8 @@ private slots:
 
     void registerServer_data();
     void registerServer();
+    void registerServerWithToken();
+    void jwtVerifier();
 
     void registerClient_data();
     void registerClient();

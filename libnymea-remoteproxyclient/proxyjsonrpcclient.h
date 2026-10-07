@@ -52,6 +52,7 @@ public:
 
     // Tunnel proxy
     JsonReply *callRegisterServer(const QUuid &serverUuid, const QString &serverName);
+    JsonReply *callRegisterServerWithToken(const QUuid &serverUuid, const QString &serverName, const QString &token);
     JsonReply *callRegisterClient(const QUuid &clientUuid, const QString &clientName, const QUuid &serverUuid);
     JsonReply *callDisconnectClient(quint16 socketAddress);
     JsonReply *callPing(uint timestamp);

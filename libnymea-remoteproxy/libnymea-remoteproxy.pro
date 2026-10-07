@@ -4,6 +4,8 @@ include(../common/common.pri)
 TEMPLATE = lib
 TARGET = nymea-remoteproxy
 
+LIBS += -lcrypto
+
 HEADERS += \
     engine.h \
     logengine.h \
@@ -22,6 +24,7 @@ HEADERS += \
     server/monitorserver.h \
     tunnelproxy/tunnelproxyclient.h \
     tunnelproxy/tunnelproxyclientconnection.h \
+    tunnelproxy/jwtverifier.h \
     tunnelproxy/tunnelproxyserver.h \
     tunnelproxy/tunnelproxyserverconnection.h
 
@@ -43,6 +46,7 @@ SOURCES += \
     server/monitorserver.cpp \
     tunnelproxy/tunnelproxyclient.cpp \
     tunnelproxy/tunnelproxyclientconnection.cpp \
+    tunnelproxy/jwtverifier.cpp \
     tunnelproxy/tunnelproxyserver.cpp \
     tunnelproxy/tunnelproxyserverconnection.cpp
 

@@ -31,6 +31,7 @@
 #include "jsontypes.h"
 #include "loggingcategories.h"
 
+#include "tunnelproxy/jwtverifier.h"
 #include "tunnelproxy/tunnelproxyserver.h"
 
 namespace remoteproxy {
@@ -49,6 +50,16 @@ TunnelProxyHandler::TunnelProxyHandler(QObject *parent) : JsonHandler(parent)
     returns.insert("tunnelProxyError", JsonTypes::tunnelProxyErrorRef());
     returns.insert("slipEnabled", JsonTypes::basicTypeToString(JsonTypes::Bool));
     setReturns("RegisterServer", returns);
+
+    params.clear(); returns.clear();
+    setDescription("RegisterServerWithToken", "Register a new TunnelProxy server after validating a signed JWT.");
+    params.insert("serverName", JsonTypes::basicTypeToString(JsonTypes::String));
+    params.insert("serverUuid", JsonTypes::basicTypeToString(JsonTypes::Uuid));
+    params.insert("token", JsonTypes::basicTypeToString(JsonTypes::String));
+    setParams("RegisterServerWithToken", params);
+    returns.insert("tunnelProxyError", JsonTypes::tunnelProxyErrorRef());
+    returns.insert("slipEnabled", JsonTypes::basicTypeToString(JsonTypes::Bool));
+    setReturns("RegisterServerWithToken", returns);
 
     params.clear(); returns.clear();
     setDescription("DisconnectClient", "A registered server can ask the remote proxy connection to disconnect a client for whatever reason.");
@@ -116,6 +127,28 @@ JsonReply *TunnelProxyHandler::RegisterServer(const QVariantMap &params, Transpo
     response.insert("tunnelProxyError", JsonTypes::tunnelProxyErrorToString(error));
     response.insert("slipEnabled", error == TunnelProxyServer::TunnelProxyErrorNoError);
     return createReply("RegisterServer", response);
+}
+
+JsonReply *TunnelProxyHandler::RegisterServerWithToken(const QVariantMap &params, TransportClient *transportClient)
+{
+    qCDebug(dcJsonRpc()) << name() << "register server with token requested" << transportClient;
+    QUuid serverUuid = params.value("serverUuid").toUuid();
+    TunnelProxyServer::TunnelProxyError error = TunnelProxyServer::TunnelProxyErrorNoError;
+    if (!verifyJwt(params.value("token").toString())) {
+        qCWarning(dcJsonRpc()) << "RegisterServerWithToken rejected: token verification failed";
+        error = TunnelProxyServer::TunnelProxyErrorAuthenticationFailed;
+    } else if (serverUuid.isNull()) {
+        qCWarning(dcJsonRpc()) << "Invalid uuid received" << params.value("serverUuid").toString() << serverUuid;
+        error = TunnelProxyServer::TunnelProxyErrorInvalidUuid;
+    } else {
+        QString serverName = params.value("serverName").toString();
+        error = Engine::instance()->tunnelProxyServer()->registerServer(transportClient->clientId(), serverUuid, serverName);
+    }
+
+    QVariantMap response;
+    response.insert("tunnelProxyError", JsonTypes::tunnelProxyErrorToString(error));
+    response.insert("slipEnabled", error == TunnelProxyServer::TunnelProxyErrorNoError);
+    return createReply("RegisterServerWithToken", response);
 }
 
 JsonReply *TunnelProxyHandler::DisconnectClient(const QVariantMap &params, TransportClient *transportClient)

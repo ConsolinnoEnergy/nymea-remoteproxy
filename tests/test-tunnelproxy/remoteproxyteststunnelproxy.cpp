@@ -27,6 +27,7 @@
 #include "engine.h"
 #include "loggingcategories.h"
 #include "../common/slipdataprocessor.h"
+#include "../../libnymea-remoteproxy/tunnelproxy/jwtverifier.h"
 #include "../../version.h"
 
 // Client
@@ -38,6 +39,15 @@
 #include <QWebSocket>
 #include <QJsonDocument>
 #include <QWebSocketServer>
+#include <QDateTime>
+#include <QFile>
+#include <QTemporaryDir>
+
+#include <memory>
+
+#include <openssl/bn.h>
+#include <openssl/evp.h>
+#include <openssl/rsa.h>
 
 using namespace remoteproxyclient;
 
@@ -576,6 +586,115 @@ void RemoteProxyTestsTunnelProxy::registerServer()
 
     // Clean up
     stopServer();
+}
+
+void RemoteProxyTestsTunnelProxy::registerServerWithToken()
+{
+    startServer();
+
+    QString serverUuid = QUuid::createUuid().toString();
+    QVariantMap params;
+    params.insert("serverName", "invalid token server");
+    params.insert("serverUuid", serverUuid);
+    params.insert("token", "not-a-jwt");
+
+    QVariantMap response = invokeWebSocketTunnelProxyApiCall("TunnelProxy.RegisterServerWithToken", params).toMap();
+    QVERIFY(!response.isEmpty());
+    verifyTunnelProxyError(response, TunnelProxyServer::TunnelProxyErrorAuthenticationFailed);
+
+    response = invokeTcpSocketTunnelProxyApiCall("TunnelProxy.RegisterServerWithToken", params).toMap();
+    QVERIFY(!response.isEmpty());
+    verifyTunnelProxyError(response, TunnelProxyServer::TunnelProxyErrorAuthenticationFailed);
+
+    QVariantMap clientParams;
+    clientParams.insert("clientName", "client");
+    clientParams.insert("clientUuid", QUuid::createUuid().toString());
+    clientParams.insert("serverUuid", serverUuid);
+    response = invokeWebSocketTunnelProxyApiCall("TunnelProxy.RegisterClient", clientParams).toMap();
+    QVERIFY(!response.isEmpty());
+    verifyTunnelProxyError(response, TunnelProxyServer::TunnelProxyErrorServerNotFound);
+
+    stopServer();
+}
+
+void RemoteProxyTestsTunnelProxy::jwtVerifier()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+
+    std::unique_ptr<EVP_PKEY_CTX, decltype(&EVP_PKEY_CTX_free)> keyContext(EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr), EVP_PKEY_CTX_free);
+    QVERIFY(keyContext);
+    QCOMPARE(EVP_PKEY_keygen_init(keyContext.get()), 1);
+    QCOMPARE(EVP_PKEY_CTX_set_rsa_keygen_bits(keyContext.get(), 2048), 1);
+
+    EVP_PKEY *rawKey = nullptr;
+    QCOMPARE(EVP_PKEY_keygen(keyContext.get(), &rawKey), 1);
+    std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> keyPair(rawKey, EVP_PKEY_free);
+    std::unique_ptr<RSA, decltype(&RSA_free)> rsaKey(EVP_PKEY_get1_RSA(keyPair.get()), RSA_free);
+    QVERIFY(rsaKey);
+
+    const BIGNUM *modulus = nullptr;
+    const BIGNUM *exponent = nullptr;
+    RSA_get0_key(rsaKey.get(), &modulus, &exponent, nullptr);
+
+    const auto encodeBase64Url = [](const QByteArray &value) {
+        return QString::fromLatin1(value.toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals));
+    };
+    const auto encodeJson = [&encodeBase64Url](const QJsonObject &object) {
+        return encodeBase64Url(QJsonDocument(object).toJson(QJsonDocument::Compact)).toLatin1();
+    };
+    const auto encodeBigNumber = [&encodeBase64Url](const BIGNUM *value) {
+        QByteArray bytes(BN_num_bytes(value), '\0');
+        BN_bn2bin(value, reinterpret_cast<unsigned char *>(bytes.data()));
+        return encodeBase64Url(bytes);
+    };
+
+    const QString keyId = QStringLiteral("unit-test-rsa");
+    QJsonObject jwk;
+    jwk.insert("kty", "RSA");
+    jwk.insert("alg", "RS256");
+    jwk.insert("use", "sig");
+    jwk.insert("kid", keyId);
+    jwk.insert("n", encodeBigNumber(modulus));
+    jwk.insert("e", encodeBigNumber(exponent));
+    QJsonArray keys;
+    keys.append(jwk);
+    QJsonObject jwks;
+    jwks.insert("keys", keys);
+
+    QFile jwksFile(temporaryDirectory.filePath(QStringLiteral("jwks.json")));
+    QVERIFY(jwksFile.open(QIODevice::WriteOnly));
+    const QByteArray jwksData = QJsonDocument(jwks).toJson(QJsonDocument::Compact);
+    QCOMPARE(jwksFile.write(jwksData), static_cast<qint64>(jwksData.size()));
+    jwksFile.close();
+
+    QJsonObject header;
+    header.insert("alg", "RS256");
+    header.insert("typ", "JWT");
+    header.insert("kid", keyId);
+    QJsonObject claims;
+    claims.insert("exp", QDateTime::currentSecsSinceEpoch() + 3600);
+    const QByteArray signingInput = encodeJson(header) + '.' + encodeJson(claims);
+
+    std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> signingContext(EVP_MD_CTX_new(), EVP_MD_CTX_free);
+    QVERIFY(signingContext);
+    QCOMPARE(EVP_DigestSignInit(signingContext.get(), nullptr, EVP_sha256(), nullptr, keyPair.get()), 1);
+    size_t signatureSize = 0;
+    QCOMPARE(EVP_DigestSign(signingContext.get(), nullptr, &signatureSize,
+                            reinterpret_cast<const unsigned char *>(signingInput.constData()),
+                            static_cast<size_t>(signingInput.size())), 1);
+    QByteArray signature(static_cast<int>(signatureSize), '\0');
+    QCOMPARE(EVP_DigestSign(signingContext.get(), reinterpret_cast<unsigned char *>(signature.data()), &signatureSize,
+                            reinterpret_cast<const unsigned char *>(signingInput.constData()),
+                            static_cast<size_t>(signingInput.size())), 1);
+    signature.resize(static_cast<int>(signatureSize));
+
+    const QByteArray token = signingInput + '.' + encodeBase64Url(signature).toLatin1();
+    QVERIFY(remoteproxy::verifyJwt(QString::fromLatin1(token), jwksFile.fileName()));
+
+    signature[0] = static_cast<char>(signature.at(0) ^ 0x01);
+    const QByteArray tamperedToken = signingInput + '.' + encodeBase64Url(signature).toLatin1();
+    QVERIFY(!remoteproxy::verifyJwt(QString::fromLatin1(tamperedToken), jwksFile.fileName()));
 }
 
 void RemoteProxyTestsTunnelProxy::registerClient_data()

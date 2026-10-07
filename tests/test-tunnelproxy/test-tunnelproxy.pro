@@ -6,6 +6,8 @@ QT += testlib
 
 TARGET = tunnelproxy
 
+LIBS += -lcrypto
+
 HEADERS += remoteproxyteststunnelproxy.h
 
 SOURCES += remoteproxyteststunnelproxy.cpp
