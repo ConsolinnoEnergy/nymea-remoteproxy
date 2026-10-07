@@ -657,8 +657,27 @@ void RemoteProxyTestsTunnelProxy::jwtVerifier()
     jwk.insert("kid", keyId);
     jwk.insert("n", encodeBigNumber(modulus));
     jwk.insert("e", encodeBigNumber(exponent));
+
+    std::unique_ptr<EVP_PKEY_CTX, decltype(&EVP_PKEY_CTX_free)> decoyKeyContext(EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr), EVP_PKEY_CTX_free);
+    QVERIFY(decoyKeyContext);
+    QCOMPARE(EVP_PKEY_keygen_init(decoyKeyContext.get()), 1);
+    QCOMPARE(EVP_PKEY_CTX_set_rsa_keygen_bits(decoyKeyContext.get(), 2048), 1);
+    EVP_PKEY *rawDecoyKey = nullptr;
+    QCOMPARE(EVP_PKEY_keygen(decoyKeyContext.get(), &rawDecoyKey), 1);
+    std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> decoyKeyPair(rawDecoyKey, EVP_PKEY_free);
+    std::unique_ptr<RSA, decltype(&RSA_free)> decoyRsaKey(EVP_PKEY_get1_RSA(decoyKeyPair.get()), RSA_free);
+    QVERIFY(decoyRsaKey);
+    const BIGNUM *decoyModulus = nullptr;
+    const BIGNUM *decoyExponent = nullptr;
+    RSA_get0_key(decoyRsaKey.get(), &decoyModulus, &decoyExponent, nullptr);
+
+    QJsonObject decoyJwk = jwk;
+    decoyJwk.insert("kid", QStringLiteral("unit-test-decoy-rsa"));
+    decoyJwk.insert("n", encodeBigNumber(decoyModulus));
+    decoyJwk.insert("e", encodeBigNumber(decoyExponent));
     QJsonArray keys;
     keys.append(jwk);
+    keys.append(decoyJwk);
     QJsonObject jwks;
     jwks.insert("keys", keys);
 
@@ -691,6 +710,24 @@ void RemoteProxyTestsTunnelProxy::jwtVerifier()
 
     const QByteArray token = signingInput + '.' + encodeBase64Url(signature).toLatin1();
     QVERIFY(remoteproxy::verifyJwt(QString::fromLatin1(token), jwksFile.fileName()));
+
+    QJsonObject headerWithoutKeyId = header;
+    headerWithoutKeyId.remove("kid");
+    const QByteArray signingInputWithoutKeyId = encodeJson(headerWithoutKeyId) + '.' + encodeJson(claims);
+    std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> noKeyIdSigningContext(EVP_MD_CTX_new(), EVP_MD_CTX_free);
+    QVERIFY(noKeyIdSigningContext);
+    QCOMPARE(EVP_DigestSignInit(noKeyIdSigningContext.get(), nullptr, EVP_sha256(), nullptr, keyPair.get()), 1);
+    size_t noKeyIdSignatureSize = 0;
+    QCOMPARE(EVP_DigestSign(noKeyIdSigningContext.get(), nullptr, &noKeyIdSignatureSize,
+                            reinterpret_cast<const unsigned char *>(signingInputWithoutKeyId.constData()),
+                            static_cast<size_t>(signingInputWithoutKeyId.size())), 1);
+    QByteArray noKeyIdSignature(static_cast<int>(noKeyIdSignatureSize), '\0');
+    QCOMPARE(EVP_DigestSign(noKeyIdSigningContext.get(), reinterpret_cast<unsigned char *>(noKeyIdSignature.data()), &noKeyIdSignatureSize,
+                            reinterpret_cast<const unsigned char *>(signingInputWithoutKeyId.constData()),
+                            static_cast<size_t>(signingInputWithoutKeyId.size())), 1);
+    noKeyIdSignature.resize(static_cast<int>(noKeyIdSignatureSize));
+    const QByteArray tokenWithoutKeyId = signingInputWithoutKeyId + '.' + encodeBase64Url(noKeyIdSignature).toLatin1();
+    QVERIFY(remoteproxy::verifyJwt(QString::fromLatin1(tokenWithoutKeyId), jwksFile.fileName()));
 
     signature[0] = static_cast<char>(signature.at(0) ^ 0x01);
     const QByteArray tamperedToken = signingInput + '.' + encodeBase64Url(signature).toLatin1();

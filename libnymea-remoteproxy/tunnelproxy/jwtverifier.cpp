@@ -78,9 +78,9 @@ bool claimsAreCurrent(const QJsonObject &claims)
     return true;
 }
 
-bool selectRsaKey(const QJsonArray &keys, const QString &keyId, QJsonObject *selectedKey)
+QJsonArray selectRsaKeys(const QJsonArray &keys, const QString &keyId)
 {
-    int matchingKeys = 0;
+    QJsonArray selectedKeys;
     for (const QJsonValue &value : keys) {
         if (!value.isObject()) {
             continue;
@@ -107,11 +107,10 @@ bool selectRsaKey(const QJsonArray &keys, const QString &keyId, QJsonObject *sel
             }
         }
 
-        *selectedKey = key;
-        ++matchingKeys;
+        selectedKeys.append(key);
     }
 
-    return matchingKeys == 1;
+    return selectedKeys;
 }
 
 bool verifyRsaSha256(const QByteArray &signingInput, const QByteArray &signature, const QJsonObject &key)
@@ -184,13 +183,24 @@ bool verifyJwt(const QString &token, const QString &jwksFilePath)
     }
 
     const QJsonArray keys = jwksDocument.object().value("keys").toArray();
-    QJsonObject key;
-    if (!selectRsaKey(keys, header.value("kid").toString(), &key)) {
+    const QString keyId = header.value("kid").toString();
+    const QJsonArray candidateKeys = selectRsaKeys(keys, keyId);
+    if (candidateKeys.isEmpty() || (!keyId.isEmpty() && candidateKeys.size() != 1)) {
         return false;
     }
 
     const QByteArray signingInput = parts.at(0).toLatin1() + '.' + parts.at(1).toLatin1();
-    return verifyRsaSha256(signingInput, signature, key);
+    int matchingSignatures = 0;
+    for (const QJsonValue &value : candidateKeys) {
+        if (verifyRsaSha256(signingInput, signature, value.toObject())) {
+            ++matchingSignatures;
+            if (matchingSignatures > 1) {
+                return false;
+            }
+        }
+    }
+
+    return matchingSignatures == 1;
 }
 
 }
