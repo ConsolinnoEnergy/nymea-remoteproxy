@@ -66,7 +66,11 @@ public:
     Q_INVOKABLE JsonReply *RegisterClient(const QVariantMap &params, TransportClient *transportClient);
 #endif
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    Q_INVOKABLE remoteproxy::JsonReply *RegisterServerWithToken(const QVariantMap &params, TransportClient *transportClient);
+    // Auch hier: unqualifizierte Typen, siehe Kommentar oben. moc registriert
+    // die Signatur sonst mit "remoteproxy::JsonReply*" und die string-basierte
+    // QMetaObject::invokeMethod-Suche (Q_RETURN_ARG mit "JsonReply*") findet
+    // die Methode nicht.
+    Q_INVOKABLE JsonReply *RegisterServerWithToken(const QVariantMap &params, TransportClient *transportClient);
 #else
     Q_INVOKABLE JsonReply *RegisterServerWithToken(const QVariantMap &params, TransportClient *transportClient);
 #endif
