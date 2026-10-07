@@ -13,6 +13,7 @@
 #include <memory>
 
 #include <openssl/bn.h>
+#include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
 
@@ -126,6 +127,7 @@ bool verifyRsaSha256(const QByteArray &signingInput, const QByteArray &signature
     std::unique_ptr<BIGNUM, decltype(&BN_free)> exponent(BN_bin2bn(reinterpret_cast<const unsigned char *>(exponentBytes.constData()), exponentBytes.size(), nullptr), BN_free);
     std::unique_ptr<RSA, decltype(&RSA_free)> rsa(RSA_new(), RSA_free);
     if (!modulus || !exponent || !rsa || RSA_set0_key(rsa.get(), modulus.get(), exponent.get(), nullptr) != 1) {
+        ERR_clear_error();
         return false;
     }
     modulus.release();
@@ -133,18 +135,31 @@ bool verifyRsaSha256(const QByteArray &signingInput, const QByteArray &signature
 
     std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> publicKey(EVP_PKEY_new(), EVP_PKEY_free);
     if (!publicKey || EVP_PKEY_set1_RSA(publicKey.get(), rsa.get()) != 1) {
+        ERR_clear_error();
         return false;
     }
 
     std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> context(EVP_MD_CTX_new(), EVP_MD_CTX_free);
     if (!context || EVP_DigestVerifyInit(context.get(), nullptr, EVP_sha256(), nullptr, publicKey.get()) != 1) {
+        ERR_clear_error();
         return false;
     }
 
-    return EVP_DigestVerify(context.get(), reinterpret_cast<const unsigned char *>(signature.constData()),
-                            static_cast<size_t>(signature.size()),
-                            reinterpret_cast<const unsigned char *>(signingInput.constData()),
-                            static_cast<size_t>(signingInput.size())) == 1;
+    int verifyResult = EVP_DigestVerify(context.get(), reinterpret_cast<const unsigned char *>(signature.constData()),
+                                        static_cast<size_t>(signature.size()),
+                                        reinterpret_cast<const unsigned char *>(signingInput.constData()),
+                                        static_cast<size_t>(signingInput.size()));
+    // OpenSSL legt bei einer fehlgeschlagenen Verifikation Fehler in der
+    // globalen Error-Queue ab (z.B. "rsa routines::invalid padding"). Diese
+    // verbleiben dort und vergiften spaeter die SSL_get_error()-Auswertung
+    // von QSslSocket: statt SSL_ERROR_WANT_READ (keine Daten) meldet OpenSSL
+    // dann SSL_ERROR_SSL und Qt schliesst die betroffene TLS-Verbindung mit
+    // "Error while reading: rsa routines::invalid padding", obwohl die
+    // Verbindung selbst intakt ist. Eine abgewiesene Token-Registrierung
+    // wuerde so ohne Antwort die Verbindung abreissen lassen. Deshalb: die
+    // Error-Queue nach jedem Verifikationsversuch explizit raeumen.
+    ERR_clear_error();
+    return verifyResult == 1;
 }
 
 }
