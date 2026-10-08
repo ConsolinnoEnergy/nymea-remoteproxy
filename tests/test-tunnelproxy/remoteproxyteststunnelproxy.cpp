@@ -765,6 +765,133 @@ void RemoteProxyTestsTunnelProxy::jwtVerifier()
     QVERIFY(!remoteproxy::verifyJwt(QString::fromLatin1(tamperedToken), jwksFile.fileName()));
 }
 
+void RemoteProxyTestsTunnelProxy::jwtVerifierNegative_data()
+{
+    QTest::addColumn<QJsonObject>("jwk");
+    QTest::addColumn<QJsonObject>("header");
+    QTest::addColumn<QJsonObject>("claims");
+
+    const QJsonObject jwkBase{
+        {"kty", "RSA"}, {"alg", "RS256"}, {"use", "sig"}, {"kid", "unit-test-rsa"}
+    };
+    const QJsonObject headerBase{
+        {"alg", "RS256"}, {"typ", "JWT"}, {"kid", "unit-test-rsa"}
+    };
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+
+    QJsonObject claimsExpired{{"exp", now - 3600}};
+    QTest::newRow("expired exp") << jwkBase << headerBase << claimsExpired;
+
+    QJsonObject claimsNotYetValid{{"exp", now + 3600}, {"nbf", now + 3600}};
+    QTest::newRow("future nbf") << jwkBase << headerBase << claimsNotYetValid;
+
+    QJsonObject headerUnknownKid = headerBase;
+    headerUnknownKid.insert("kid", QStringLiteral("unit-test-unknown-kid"));
+    QTest::newRow("unknown kid") << jwkBase << headerUnknownKid << QJsonObject{{"exp", now + 3600}};
+
+    // Duplicate kid: two JWKS keys with the same kid (ambiguous matching)
+    QJsonObject jwkDuplicate = jwkBase;
+    jwkDuplicate.insert("__duplicate", true); // marker: test writes this jwk twice
+    QTest::newRow("duplicate kid") << jwkDuplicate << headerBase << QJsonObject{{"exp", now + 3600}};
+
+    QJsonObject jwkWrongUse = jwkBase;
+    jwkWrongUse.insert("use", QStringLiteral("enc"));
+    QTest::newRow("incompatible use") << jwkWrongUse << headerBase << QJsonObject{{"exp", now + 3600}};
+
+    QJsonObject jwkWrongAlg = jwkBase;
+    jwkWrongAlg.insert("alg", QStringLiteral("RS512"));
+    QTest::newRow("incompatible alg") << jwkWrongAlg << headerBase << QJsonObject{{"exp", now + 3600}};
+
+    QJsonObject jwkWrongKeyOps = jwkBase;
+    jwkWrongKeyOps.insert("key_ops", QJsonArray{"sign"});
+    QTest::newRow("incompatible key_ops") << jwkWrongKeyOps << headerBase << QJsonObject{{"exp", now + 3600}};
+}
+
+void RemoteProxyTestsTunnelProxy::jwtVerifierNegative()
+{
+    QFETCH(QJsonObject, jwk);
+    QFETCH(QJsonObject, header);
+    QFETCH(QJsonObject, claims);
+
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+
+    // Generate the signing key pair
+    std::unique_ptr<EVP_PKEY_CTX, decltype(&EVP_PKEY_CTX_free)> keyContext(EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr), EVP_PKEY_CTX_free);
+    QVERIFY(keyContext);
+    QCOMPARE(EVP_PKEY_keygen_init(keyContext.get()), 1);
+    QCOMPARE(EVP_PKEY_CTX_set_rsa_keygen_bits(keyContext.get(), 2048), 1);
+    EVP_PKEY *rawKey = nullptr;
+    QCOMPARE(EVP_PKEY_keygen(keyContext.get(), &rawKey), 1);
+    std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> keyPair(rawKey, EVP_PKEY_free);
+    std::unique_ptr<RSA, decltype(&RSA_free)> rsaKey(EVP_PKEY_get1_RSA(keyPair.get()), RSA_free);
+    QVERIFY(rsaKey);
+    const BIGNUM *modulus = nullptr;
+    const BIGNUM *exponent = nullptr;
+    RSA_get0_key(rsaKey.get(), &modulus, &exponent, nullptr);
+
+    const auto encodeBase64Url = [](const QByteArray &value) {
+        return QString::fromLatin1(value.toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals));
+    };
+    const auto encodeJson = [&encodeBase64Url](const QJsonObject &object) {
+        return encodeBase64Url(QJsonDocument(object).toJson(QJsonDocument::Compact)).toLatin1();
+    };
+    const auto encodeBigNumber = [&encodeBase64Url](const BIGNUM *value) {
+        QByteArray bytes(BN_num_bytes(value), '\0');
+        BN_bn2bin(value, reinterpret_cast<unsigned char *>(bytes.data()));
+        return encodeBase64Url(bytes);
+    };
+    const auto signToken = [&keyPair, &encodeJson, &encodeBase64Url](const QJsonObject &tokenHeader, const QJsonObject &tokenClaims) -> QByteArray {
+        const QByteArray signingInput = encodeJson(tokenHeader) + '.' + encodeJson(tokenClaims);
+        std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> signingContext(EVP_MD_CTX_new(), EVP_MD_CTX_free);
+        if (!signingContext
+                || EVP_DigestSignInit(signingContext.get(), nullptr, EVP_sha256(), nullptr, keyPair.get()) != 1) {
+            return QByteArray();
+        }
+        size_t signatureSize = 0;
+        if (EVP_DigestSign(signingContext.get(), nullptr, &signatureSize,
+                           reinterpret_cast<const unsigned char *>(signingInput.constData()),
+                           static_cast<size_t>(signingInput.size())) != 1) {
+            return QByteArray();
+        }
+        QByteArray signature(static_cast<int>(signatureSize), '\0');
+        if (EVP_DigestSign(signingContext.get(), reinterpret_cast<unsigned char *>(signature.data()), &signatureSize,
+                           reinterpret_cast<const unsigned char *>(signingInput.constData()),
+                           static_cast<size_t>(signingInput.size())) != 1) {
+            return QByteArray();
+        }
+        signature.resize(static_cast<int>(signatureSize));
+        return signingInput + '.' + encodeBase64Url(signature).toLatin1();
+    };
+
+    // Build the JWKS. The actual key material of the JWK under test always
+    // corresponds to the signing key pair.
+    QJsonObject jwkReal = jwk;
+    const bool duplicateKid = jwkReal.take("__duplicate").toBool();
+    jwkReal.insert("n", encodeBigNumber(modulus));
+    jwkReal.insert("e", encodeBigNumber(exponent));
+
+    QJsonArray keys;
+    keys.append(jwkReal);
+    if (duplicateKid) {
+        keys.append(jwkReal); // ambiguous matching keys with the same kid
+    }
+
+    QJsonObject jwks;
+    jwks.insert("keys", keys);
+
+    QFile jwksFile(temporaryDirectory.filePath(QStringLiteral("jwks.json")));
+    QVERIFY(jwksFile.open(QIODevice::WriteOnly));
+    const QByteArray jwksData = QJsonDocument(jwks).toJson(QJsonDocument::Compact);
+    QCOMPARE(jwksFile.write(jwksData), static_cast<qint64>(jwksData.size()));
+    jwksFile.close();
+
+    const QByteArray token = signToken(header, claims);
+    QVERIFY2(!token.isEmpty(), "Token generation failed");
+    QVERIFY2(!remoteproxy::verifyJwt(QString::fromLatin1(token), jwksFile.fileName()),
+             qPrintable(QString("Token (%1) must be rejected").arg(QTest::currentDataTag())));
+}
+
 void RemoteProxyTestsTunnelProxy::registerClient_data()
 {
     QTest::addColumn<QString>("name");

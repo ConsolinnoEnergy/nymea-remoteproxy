@@ -190,6 +190,19 @@ void TunnelProxySocketServer::stopServer()
 
     qCDebug(dcTunnelProxySocketServer()) << "Stopping the server.";
 
+    // Cancel and detach a token helper that is still running (token
+    // acquisition started but did not complete yet). The connection has
+    // not started in that case, so disconnectServer() would not trigger
+    // cleanUp(). Detach first, so a subsequent failure/timeout of the
+    // killed helper cannot emit a spurious connection error after an
+    // intentional stop.
+    QProcess *tokenProcess = findChild<QProcess *>(QStringLiteral("registrationTokenProcess"));
+    if (tokenProcess) {
+        tokenProcess->setObjectName(QString());
+        tokenProcess->kill();
+        tokenProcess->deleteLater();
+    }
+
     if (m_connection) {
         qCDebug(dcTunnelProxySocketServer()) << "Disconnecting from" << m_connection->serverUrl().toString();
         m_connection->disconnectServer();
