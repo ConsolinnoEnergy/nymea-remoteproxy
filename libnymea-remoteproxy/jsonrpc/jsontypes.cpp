@@ -91,12 +91,13 @@ QPair<bool, QString> JsonTypes::validateMap(const QVariantMap &templateMap, cons
         if (map.contains(strippedKey)) {
             QPair<bool, QString> result = validateVariant(templateMap.value(key), map.value(strippedKey), hideValues || strippedKey == QStringLiteral("token"));
             if (!result.first) {
-                // Never log a credential value (e.g. "params.token")
-                if (strippedKey == "token") {
-                    qCWarning(dcJsonRpc()) << "Object not matching template" << templateMap.value(key) << QStringLiteral("[redacted]");
-                } else {
-                    qCWarning(dcJsonRpc()) << "Object not matching template" << templateMap.value(key) << map.value(strippedKey);
-                }
+                // Never log a credential value: honor hideValues and
+                // recursively redact tokens in values that remain visible
+                // (a value may itself contain a nested token).
+                const QVariant displayedValue = hideValues
+                        ? QVariant(QStringLiteral("[redacted]"))
+                        : redactTokenValues(map.value(strippedKey));
+                qCWarning(dcJsonRpc()) << "Object not matching template" << templateMap.value(key) << displayedValue;
                 return result;
             }
         }
@@ -148,8 +149,12 @@ QPair<bool, QString> JsonTypes::validateVariant(const QVariant &templateVariant,
         } else {
             QPair<bool, QString> result = JsonTypes::validateProperty(templateVariant, variant);
             if (!result.first) {
-                // Never log a credential value (e.g. "params.token")
-                qCWarning(dcJsonRpc()) << "Property not matching:" << templateVariant << "!=" << (hideValues ? QVariant(QStringLiteral("[redacted]")) : variant);
+                // Never log a credential value: with hideValues the value
+                // is not shown at all, otherwise tokens inside are redacted.
+                const QVariant displayedValue = hideValues
+                        ? QVariant(QStringLiteral("[redacted]"))
+                        : redactTokenValues(variant);
+                qCWarning(dcJsonRpc()) << "Property not matching:" << templateVariant << "!=" << displayedValue;
                 return result;
             }
         }

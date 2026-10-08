@@ -95,6 +95,48 @@ void JsonRpcPrivacyTest::redactedNestedToken()
     QVERIFY(redacted.contains("[redacted]"));
 }
 
+static QMutex s_messageMutex;
+static QStringList s_messages;
+static void testMessageHandler(QtMsgType, const QMessageLogContext &, const QString &msg)
+{
+    QMutexLocker locker(&s_messageMutex);
+    s_messages.append(msg);
+}
+
+void JsonRpcPrivacyTest::validationWarningsRedacted()
+{
+    // validateMap() logs warnings on mismatches. A request like
+    // {"serverName": {"token": "SECRET-JWT"}} fails the string validation
+    // of serverName; the logged value must never contain the token.
+    QVariantMap templateMap;
+    templateMap.insert("serverName", QStringLiteral("String"));
+
+    QVariantMap badParams;
+    QVariantMap serverName;
+    serverName.insert("token", QStringLiteral("SECRET-JWT"));
+    badParams.insert("serverName", serverName);
+
+    // Capture validation warnings
+    s_messages.clear();
+    qInstallMessageHandler(testMessageHandler);
+
+    // With hideValues=true (request params validation) the value is hidden
+    QPair<bool, QString> result = JsonTypes::validateMap(templateMap, badParams, true);
+    QVERIFY2(!result.first, "Validation must fail for a non-string serverName");
+
+    // Without hideValues the value stays visible but nested tokens are
+    // recursively redacted.
+    result = JsonTypes::validateMap(templateMap, badParams, false);
+    QVERIFY2(!result.first, "Validation must fail for a non-string serverName");
+
+    qInstallMessageHandler(nullptr);
+
+    foreach (const QString &message, s_messages) {
+        QVERIFY2(!message.contains("SECRET-JWT"),
+                 qPrintable(QString("Validation warning leaked the token: %1").arg(message)));
+    }
+}
+
 void JsonRpcPrivacyTest::redactParamsTokensVariantMap()
 {
     // Nested: params.token

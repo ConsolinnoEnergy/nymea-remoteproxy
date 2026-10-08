@@ -27,8 +27,10 @@
 
 #include <QObject>
 #include <QtTest>
+#include <QMutex>
 
 #include "jsonrpc/jsonrpcprivacy.h"
+#include "jsonrpc/jsontypes.h"
 
 using namespace remoteproxy;
 
@@ -41,6 +43,7 @@ private slots:
     void redactedTopLevelToken();
     void redactedArrayValuedParams();
     void redactedNestedToken();
+    void validationWarningsRedacted();
     void redactParamsTokensVariantMap();
     void fragmentedPayloadPlaceholder();
     void cleanPayloadUntouched();

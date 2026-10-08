@@ -1,8 +1,5 @@
-CONFIG += testcase
-QT += testlib
-QT -= gui
-
-INCLUDEPATH += ../../libnymea-remoteproxy
+include(../../nymea-remoteproxy.pri)
+include(../testbase/testbase.pri)
 
 TARGET = jsonrpcprivacy
 
