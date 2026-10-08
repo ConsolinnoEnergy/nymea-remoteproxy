@@ -168,6 +168,11 @@ bool TunnelProxySocketServer::startServer(const QUrl &serverUrl)
         }
 
         qCDebug(dcTunnelProxySocketServer()) << "Fetching registration token before connecting to" << m_serverUrl.toString();
+        // The token retrieval may take longer than the reconnect timer
+        // interval. A reconnect tick would call startServer() again and
+        // kill the running helper via cleanUp(), so stop it while the
+        // token is being fetched (onTokenProcessFailed restarts it).
+        m_reconnectTimer.stop();
         startTokenProcess();
         return true;
     }

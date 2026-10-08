@@ -26,7 +26,7 @@
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "tcpsocketserver.h"
-#include "jsonrpcprivacy.h"
+#include "jsonrpc/jsonrpcprivacy.h"
 #include "loggingcategories.h"
 
 namespace remoteproxy {

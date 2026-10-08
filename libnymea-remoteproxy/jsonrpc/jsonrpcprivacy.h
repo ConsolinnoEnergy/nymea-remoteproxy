@@ -20,6 +20,19 @@ namespace remoteproxy {
 //    params (currently "params.token") redacted
 //  - fragmented or invalid data is represented by a placeholder without
 //    content, since any fragment may contain (part of) a credential
+// Variant-map redaction: replaces credential-bearing params (currently
+// "params.token") in already-parsed JSON-RPC messages.
+inline QVariantMap redactParamsTokens(const QVariantMap &message)
+{
+    QVariantMap redacted = message;
+    QVariantMap params = redacted.value("params").toMap();
+    if (params.contains("token")) {
+        params.insert("token", QStringLiteral("[redacted]"));
+        redacted.insert("params", params);
+    }
+    return redacted;
+}
+
 inline QByteArray redactedLogPayload(const QByteArray &data)
 {
     QJsonParseError parseError;
@@ -28,14 +41,7 @@ inline QByteArray redactedLogPayload(const QByteArray &data)
         return QByteArray("<fragmented or invalid payload, " + QByteArray::number(data.size()) + " bytes>");
     }
 
-    QVariantMap message = document.toVariant().toMap();
-    QVariantMap params = message.value("params").toMap();
-    if (params.contains("token")) {
-        params.insert("token", QStringLiteral("[redacted]"));
-        message.insert("params", params);
-    }
-
-    return QJsonDocument::fromVariant(message).toJson(QJsonDocument::Compact);
+    return QJsonDocument::fromVariant(redactParamsTokens(document.toVariant().toMap())).toJson(QJsonDocument::Compact);
 }
 
 }

@@ -26,6 +26,8 @@
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "proxyjsonrpcclient.h"
+
+#include <QTimer>
 #include "proxyconnection.h"
 #include "../common/slipdataprocessor.h"
 
@@ -84,7 +86,10 @@ JsonReply *JsonRpcClient::callRegisterServerWithToken(const QUuid &serverUuid, c
         errorResponse.insert("status", "error");
         errorResponse.insert("error", "Token registration requires an encrypted transport");
         reply->setResponse(errorResponse);
-        emit reply->finished();
+        // Do not emit finished() here: direct callers follow the call-then-connect
+        // pattern and connect to the reply only after this function returns.
+        // Queue the signal so late subscribers still receive the rejection.
+        QTimer::singleShot(0, reply, [reply]() { emit reply->finished(); });
         return reply;
     }
 

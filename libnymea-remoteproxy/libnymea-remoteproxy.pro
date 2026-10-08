@@ -20,7 +20,7 @@ HEADERS += \
     server/unixsocketserver.h \
     server/websocketserver.h \
     server/jsonrpcserver.h \
-    server/jsonrpcprivacy.h \
+    jsonrpc/jsonrpcprivacy.h \
     server/transportclient.h \
     server/monitorserver.h \
     tunnelproxy/tunnelproxyclient.h \

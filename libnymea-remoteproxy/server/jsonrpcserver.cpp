@@ -27,7 +27,7 @@
 
 #include "engine.h"
 #include "jsonrpcserver.h"
-#include "jsonrpcprivacy.h"
+#include "jsonrpc/jsonrpcprivacy.h"
 #include "loggingcategories.h"
 #include "jsonrpc/jsontypes.h"
 #include "transportclient.h"
@@ -217,7 +217,7 @@ void JsonRpcServer::processDataPacket(TransportClient *transportClient, const QB
     QJsonParseError error;
     QJsonDocument jsonDoc = QJsonDocument::fromJson(data, &error);
     if(error.error != QJsonParseError::NoError) {
-        qCWarning(dcJsonRpc) << "Failed to parse JSON data" << data << ":" << error.errorString();
+        qCWarning(dcJsonRpc) << "Failed to parse JSON data" << qUtf8Printable(redactedLogPayload(data)) << ":" << error.errorString();
         sendErrorResponse(transportClient, -1, QString("Failed to parse JSON data: %1").arg(error.errorString()));
         transportClient->killConnection("Invalid JSON data received.");
         return;
@@ -228,7 +228,7 @@ void JsonRpcServer::processDataPacket(TransportClient *transportClient, const QB
     bool success = false;
     int commandId = message.value("id").toInt(&success);
     if (!success) {
-        qCWarning(dcJsonRpc()) << "Error parsing command. Missing \"id\":" << message;
+        qCWarning(dcJsonRpc()) << "Error parsing command. Missing \"id\":" << redactParamsTokens(message);
         sendErrorResponse(transportClient, -1, "Error parsing command. Missing 'id'");
         transportClient->killConnection("The id property is missing in the request.");
         return;

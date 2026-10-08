@@ -26,7 +26,7 @@
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "unixsocketserver.h"
-#include "jsonrpcprivacy.h"
+#include "jsonrpc/jsonrpcprivacy.h"
 
 #include <QFile>
 
