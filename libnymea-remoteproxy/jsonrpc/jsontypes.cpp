@@ -26,6 +26,7 @@
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "jsontypes.h"
+#include "jsonrpcprivacy.h"
 #include <QStringList>
 #include <QJsonDocument>
 #include <QDebug>
@@ -68,6 +69,12 @@ void JsonTypes::init()
 
 QPair<bool, QString> JsonTypes::validateMap(const QVariantMap &templateMap, const QVariantMap &map)
 {
+    // ABI-compatible overload, forwards to the hideValues variant
+    return validateMap(templateMap, map, false);
+}
+
+QPair<bool, QString> JsonTypes::validateMap(const QVariantMap &templateMap, const QVariantMap &map, bool hideValues)
+{
     s_lastError.clear();
 
     // Make sure all values defined in the template are around
@@ -77,14 +84,20 @@ QPair<bool, QString> JsonTypes::validateMap(const QVariantMap &templateMap, cons
         if (!key.startsWith("o:") && !map.contains(strippedKey)) {
             qCWarning(dcJsonRpc()) << "*** missing key" << key;
             qCWarning(dcJsonRpc()) << "Expected:      " << templateMap;
-            qCWarning(dcJsonRpc()) << "Got:           " << map;
-            QJsonDocument jsonDoc = QJsonDocument::fromVariant(map);
+            qCWarning(dcJsonRpc()) << "Got:           " << redactParamsTokens(map);
+            QJsonDocument jsonDoc = QJsonDocument::fromVariant(redactParamsTokens(map));
             return report(false, QString("Missing key %1 in %2").arg(key).arg(QString(jsonDoc.toJson())));
         }
         if (map.contains(strippedKey)) {
-            QPair<bool, QString> result = validateVariant(templateMap.value(key), map.value(strippedKey));
+            QPair<bool, QString> result = validateVariant(templateMap.value(key), map.value(strippedKey), hideValues || strippedKey == QStringLiteral("token"));
             if (!result.first) {
-                qCWarning(dcJsonRpc()) << "Object not matching template" << templateMap.value(key) << map.value(strippedKey);
+                // Never log a credential value: honor hideValues and
+                // recursively redact tokens in values that remain visible
+                // (a value may itself contain a nested token).
+                const QVariant displayedValue = hideValues
+                        ? QVariant(QStringLiteral("[redacted]"))
+                        : redactTokenValues(map.value(strippedKey));
+                qCWarning(dcJsonRpc()) << "Object not matching template" << templateMap.value(key) << displayedValue;
                 return result;
             }
         }
@@ -96,7 +109,7 @@ QPair<bool, QString> JsonTypes::validateMap(const QVariantMap &templateMap, cons
 
         if (!templateMap.contains(key) && !templateMap.contains(optKey)) {
             qCWarning(dcJsonRpc()) << "Forbidden param" << key << "in params";
-            QJsonDocument jsonDoc = QJsonDocument::fromVariant(map);
+            QJsonDocument jsonDoc = QJsonDocument::fromVariant(hideValues ? redactParamsTokens(map) : map);
             return report(false, QString("Forbidden key \"%1\" in %2").arg(key).arg(QString(jsonDoc.toJson())));
         }
     }
@@ -105,6 +118,12 @@ QPair<bool, QString> JsonTypes::validateMap(const QVariantMap &templateMap, cons
 }
 
 QPair<bool, QString> JsonTypes::validateVariant(const QVariant &templateVariant, const QVariant &variant)
+{
+    // ABI-compatible overload, forwards to the hideValues variant
+    return validateVariant(templateVariant, variant, false);
+}
+
+QPair<bool, QString> JsonTypes::validateVariant(const QVariant &templateVariant, const QVariant &variant, bool hideValues)
 {
     switch(templateVariant.type()) {
     case QVariant::String:
@@ -130,13 +149,18 @@ QPair<bool, QString> JsonTypes::validateVariant(const QVariant &templateVariant,
         } else {
             QPair<bool, QString> result = JsonTypes::validateProperty(templateVariant, variant);
             if (!result.first) {
-                qCWarning(dcJsonRpc()) << "Property not matching:" << templateVariant << "!=" << variant;
+                // Never log a credential value: with hideValues the value
+                // is not shown at all, otherwise tokens inside are redacted.
+                const QVariant displayedValue = hideValues
+                        ? QVariant(QStringLiteral("[redacted]"))
+                        : redactTokenValues(variant);
+                qCWarning(dcJsonRpc()) << "Property not matching:" << templateVariant << "!=" << displayedValue;
                 return result;
             }
         }
         break;
     case QVariant::Map: {
-        QPair<bool, QString> result = validateMap(templateVariant.toMap(), variant.toMap());
+        QPair<bool, QString> result = validateMap(templateVariant.toMap(), variant.toMap(), hideValues);
         if (!result.first) {
             return result;
         }

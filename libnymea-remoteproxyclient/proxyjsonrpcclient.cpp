@@ -26,6 +26,8 @@
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "proxyjsonrpcclient.h"
+
+#include <QTimer>
 #include "proxyconnection.h"
 #include "../common/slipdataprocessor.h"
 
@@ -59,6 +61,38 @@ JsonReply *JsonRpcClient::callRegisterServer(const QUuid &serverUuid, const QStr
     params.insert("serverUuid", serverUuid.toString());
 
     JsonReply *reply = new JsonReply(m_commandId, "TunnelProxy", "RegisterServer", params, this);
+    qCDebug(dcRemoteProxyClientJsonRpc()) << "Calling" << QString("%1.%2").arg(reply->nameSpace()).arg(reply->method());
+    sendRequest(reply->requestMap());
+    m_replies.insert(m_commandId, reply);
+    return reply;
+}
+
+JsonReply *JsonRpcClient::callRegisterServerWithToken(const QUuid &serverUuid, const QString &serverName, const QString &token)
+{
+    QVariantMap params;
+    params.insert("serverName", serverName);
+    params.insert("serverUuid", serverUuid.toString());
+    params.insert("token", token);
+
+    JsonReply *reply = new JsonReply(m_commandId, "TunnelProxy", "RegisterServerWithToken", params, this);
+
+    // The token is a credential that can be replayed until it expires.
+    // Never transmit it over an unencrypted transport.
+    const QString scheme = m_connection->serverUrl().scheme();
+    if (scheme == QStringLiteral("tcp") || scheme == QStringLiteral("ws")) {
+        qCWarning(dcRemoteProxyClientJsonRpc()) << "Refusing to send a registration token over an unencrypted transport" << m_connection->serverUrl().toString();
+        QVariantMap errorResponse;
+        errorResponse.insert("id", reply->commandId());
+        errorResponse.insert("status", "error");
+        errorResponse.insert("error", "Token registration requires an encrypted transport");
+        reply->setResponse(errorResponse);
+        // Do not emit finished() here: direct callers follow the call-then-connect
+        // pattern and connect to the reply only after this function returns.
+        // Queue the signal so late subscribers still receive the rejection.
+        QTimer::singleShot(0, reply, [reply]() { emit reply->finished(); });
+        return reply;
+    }
+
     qCDebug(dcRemoteProxyClientJsonRpc()) << "Calling" << QString("%1.%2").arg(reply->nameSpace()).arg(reply->method());
     sendRequest(reply->requestMap());
     m_replies.insert(m_commandId, reply);
@@ -105,16 +139,32 @@ JsonReply *JsonRpcClient::callPing(uint timestamp)
 
 void JsonRpcClient::sendRequest(const QVariantMap &request, bool slipEnabled)
 {
+    // Redact credential-bearing params (e.g. the signed JWT of
+    // RegisterServerWithToken) from the logging copy. The transmitted
+    // request must remain unchanged.
+    QVariantMap logRequest = request;
+    QVariantMap logParams = logRequest.value("params").toMap();
+    if (logParams.contains("token")) {
+        logParams.insert("token", QStringLiteral("[redacted]"));
+        logRequest.insert("params", logParams);
+    }
+
     QByteArray data = QJsonDocument::fromVariant(request).toJson(QJsonDocument::Compact) + "\n";
+    QByteArray logData = QJsonDocument::fromVariant(logRequest).toJson(QJsonDocument::Compact) + "\n";
 
     if (slipEnabled) {
         SlipDataProcessor::Frame frame;
         frame.socketAddress = 0x0000;
         frame.data = data;
         data = SlipDataProcessor::serializeData(SlipDataProcessor::buildFrame(frame));
+
+        SlipDataProcessor::Frame logFrame;
+        logFrame.socketAddress = 0x0000;
+        logFrame.data = logData;
+        logData = SlipDataProcessor::serializeData(SlipDataProcessor::buildFrame(logFrame));
     }
 
-    qCDebug(dcRemoteProxyClientJsonRpcTraffic()) << "Sending" << qUtf8Printable(data);
+    qCDebug(dcRemoteProxyClientJsonRpcTraffic()) << "Sending" << qUtf8Printable(logData);
     m_connection->sendData(data);
 }
 

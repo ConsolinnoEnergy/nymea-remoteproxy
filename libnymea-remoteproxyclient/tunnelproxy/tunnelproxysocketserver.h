@@ -37,6 +37,8 @@
 
 #include "tunnelproxysocket.h"
 
+class QProcess;
+
 Q_DECLARE_LOGGING_CATEGORY(dcTunnelProxySocketServer)
 Q_DECLARE_LOGGING_CATEGORY(dcTunnelProxySocketServerTraffic)
 
@@ -154,6 +156,10 @@ private:
 
     ProxyConnection *m_connection = nullptr;
     JsonRpcClient *m_jsonClient = nullptr;
+    // Note: the registration token is kept as a dynamic QObject property
+    // ("registrationToken") instead of a member, since adding a member
+    // would change the class layout and break the ABI of the installed
+    // libnymea-remoteproxyclient.so.1.
 
     QHash<quint16, TunnelProxySocket *> m_tunnelProxySockets;
 
@@ -161,11 +167,13 @@ private:
 
     void requestSocketDisconnect(quint16 socketAddress);
     void setupTimers();
+    void startTokenProcess();
 
     void setState(State state);
     void setRunning(bool running);
     void setError(QAbstractSocket::SocketError error);
     void setServerError(Error error);
+    void onTokenProcessFailed(QProcess *process, const QString &reason);
 
     void cleanUp();
 };

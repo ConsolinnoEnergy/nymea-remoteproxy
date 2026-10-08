@@ -27,6 +27,7 @@
 
 #include "tunnelproxyserver.h"
 #include "loggingcategories.h"
+#include "jsonrpc/jsonrpcprivacy.h"
 
 #include "jsonrpc/tunnelproxyhandler.h"
 #include "tunnelproxyserverconnection.h"
@@ -375,7 +376,7 @@ void TunnelProxyServer::onClientDataAvailable(const QUuid &clientId, const QByte
         return;
     }
 
-    qCDebug(dcTunnelProxyServerTraffic()) << "Client data available" << tunnelProxyClient << qUtf8Printable(data);
+    qCDebug(dcTunnelProxyServerTraffic()) << "Client data available" << tunnelProxyClient << qUtf8Printable(redactedLogPayload(data));
     tunnelProxyClient->addRxDataCount(data.count());
 
     if (tunnelProxyClient->type() == TunnelProxyClient::TypeClient) {

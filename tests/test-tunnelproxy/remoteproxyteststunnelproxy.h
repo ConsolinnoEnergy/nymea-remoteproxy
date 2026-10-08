@@ -48,6 +48,7 @@ private slots:
 
     void configuration_data();
     void configuration();
+    void sslCertificateChain();
 
     void serverPortBlocked();
 
@@ -62,6 +63,10 @@ private slots:
 
     void registerServer_data();
     void registerServer();
+    void registerServerWithToken();
+    void jwtVerifier();
+    void jwtVerifierNegative_data();
+    void jwtVerifierNegative();
 
     void registerClient_data();
     void registerClient();

@@ -32,6 +32,9 @@
 #include "proxyjsonrpcclient.h"
 #include "../../common/slipdataprocessor.h"
 
+#include <QFileInfo>
+#include <QProcess>
+
 Q_LOGGING_CATEGORY(dcTunnelProxySocketServer, "TunnelProxySocketServer")
 Q_LOGGING_CATEGORY(dcTunnelProxySocketServerTraffic, "TunnelProxySocketServerTraffic")
 
@@ -147,9 +150,35 @@ bool TunnelProxySocketServer::startServer(const QUrl &serverUrl)
     connect(m_jsonClient, &JsonRpcClient::tunnelProxyClientConnected, this, &TunnelProxySocketServer::onTunnelProxyClientConnected);
     connect(m_jsonClient, &JsonRpcClient::tunnelProxyClientDisonnected, this, &TunnelProxySocketServer::onTunnelProxyClientDisconnected);
 
+    m_enabled = true;
+
+    // Token-based registration: the token is fetched BEFORE connecting, so
+    // the proxy-side registration deadline (which starts when the connection
+    // is created) is not consumed by the token retrieval.
+    const QString tokenScriptPath = QStringLiteral("/usr/bin/get_token");
+    if (QFileInfo::exists(tokenScriptPath)) {
+        // The token is a credential that can be replayed until it expires:
+        // never use it over an unencrypted transport. There is no fallback
+        // to token-less registration.
+        const QString scheme = m_serverUrl.scheme();
+        if (scheme == QStringLiteral("tcp") || scheme == QStringLiteral("ws")) {
+            qCWarning(dcTunnelProxySocketServer()) << "Token-based registration requires an encrypted transport. Refusing to connect to" << m_serverUrl.toString();
+            setServerError(ErrorConnectionError);
+            return false;
+        }
+
+        qCDebug(dcTunnelProxySocketServer()) << "Fetching registration token before connecting to" << m_serverUrl.toString();
+        // The token retrieval may take longer than the reconnect timer
+        // interval. A reconnect tick would call startServer() again and
+        // kill the running helper via cleanUp(), so stop it while the
+        // token is being fetched (onTokenProcessFailed restarts it).
+        m_reconnectTimer.stop();
+        startTokenProcess();
+        return true;
+    }
+
     qCDebug(dcTunnelProxySocketServer()) << "Connecting to" << m_serverUrl.toString();
     m_connection->connectServer(m_serverUrl);
-    m_enabled = true;
 
     return true;
 }
@@ -160,6 +189,19 @@ void TunnelProxySocketServer::stopServer()
     m_reconnectTimer.stop();
 
     qCDebug(dcTunnelProxySocketServer()) << "Stopping the server.";
+
+    // Cancel and detach a token helper that is still running (token
+    // acquisition started but did not complete yet). The connection has
+    // not started in that case, so disconnectServer() would not trigger
+    // cleanUp(). Detach first, so a subsequent failure/timeout of the
+    // killed helper cannot emit a spurious connection error after an
+    // intentional stop.
+    QProcess *tokenProcess = findChild<QProcess *>(QStringLiteral("registrationTokenProcess"));
+    if (tokenProcess) {
+        tokenProcess->setObjectName(QString());
+        tokenProcess->kill();
+        tokenProcess->deleteLater();
+    }
 
     if (m_connection) {
         qCDebug(dcTunnelProxySocketServer()) << "Disconnecting from" << m_connection->serverUrl().toString();
@@ -287,8 +329,57 @@ void TunnelProxySocketServer::onHelloFinished()
 
     setState(StateRegister);
 
+    if (!property("registrationToken").toString().isEmpty()) {
+        JsonReply *registerReply = m_jsonClient->callRegisterServerWithToken(m_serverUuid, m_serverName, property("registrationToken").toString());
+        connect(registerReply, &JsonReply::finished, this, &TunnelProxySocketServer::onServerRegistrationFinished);
+        return;
+    }
+
     JsonReply *registerReply = m_jsonClient->callRegisterServer(m_serverUuid, m_serverName);
     connect(registerReply, &JsonReply::finished, this, &TunnelProxySocketServer::onServerRegistrationFinished);
+}
+
+void TunnelProxySocketServer::startTokenProcess()
+{
+    const QString tokenScriptPath = QStringLiteral("/usr/bin/get_token");
+    QProcess *tokenProcess = new QProcess(this);
+    tokenProcess->setObjectName(QStringLiteral("registrationTokenProcess"));
+    connect(tokenProcess, &QProcess::errorOccurred, this, [this, tokenProcess](QProcess::ProcessError) {
+        onTokenProcessFailed(tokenProcess, tokenProcess->errorString());
+    });
+    connect(tokenProcess, static_cast<void (QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished), this,
+            [this, tokenProcess](int exitCode, QProcess::ExitStatus exitStatus) {
+        if (findChild<QProcess *>(QStringLiteral("registrationTokenProcess")) != tokenProcess) {
+            return;
+        }
+        if (exitStatus != QProcess::NormalExit || exitCode != 0) {
+            onTokenProcessFailed(tokenProcess, QStringLiteral("Token script exited unsuccessfully"));
+            return;
+        }
+
+        const QString token = QString::fromUtf8(tokenProcess->readAllStandardOutput()).trimmed();
+        if (token.isEmpty()) {
+            onTokenProcessFailed(tokenProcess, QStringLiteral("Token script returned an empty token"));
+            return;
+        }
+
+        tokenProcess->setObjectName(QString());
+        tokenProcess->deleteLater();
+        if (!m_enabled || m_state == StateRunning) {
+            return;
+        }
+
+        setProperty("registrationToken", token);
+        qCDebug(dcTunnelProxySocketServer()) << "Registration token acquired. Connecting to" << m_serverUrl.toString();
+        m_connection->connectServer(m_serverUrl);
+    });
+    tokenProcess->start(tokenScriptPath);
+    QTimer::singleShot(10000, tokenProcess, [this, tokenProcess]() {
+        if (findChild<QProcess *>(QStringLiteral("registrationTokenProcess")) == tokenProcess
+                && tokenProcess->state() != QProcess::NotRunning) {
+            tokenProcess->kill();
+        }
+    });
 }
 
 void TunnelProxySocketServer::onServerRegistrationFinished()
@@ -445,6 +536,27 @@ void TunnelProxySocketServer::setServerError(Error error)
     emit serverErrorOccurred(m_serverError);
 }
 
+void TunnelProxySocketServer::onTokenProcessFailed(QProcess *process, const QString &reason)
+{
+    if (findChild<QProcess *>(QStringLiteral("registrationTokenProcess")) != process) {
+        return;
+    }
+
+    process->kill();
+    process->setObjectName(QString());
+    process->deleteLater();
+    qCWarning(dcTunnelProxySocketServer()) << "Could not obtain a registration token:" << reason;
+    if (m_connection && m_connection->connected()) {
+        m_connection->disconnectServer();
+    }
+    setState(StateDisconnected);
+    setServerError(ErrorConnectionError);
+    if (m_enabled && m_state == StateDisconnected && !m_reconnectTimer.isActive()) {
+        // Retry token retrieval (and the following connection setup)
+        m_reconnectTimer.start();
+    }
+}
+
 void TunnelProxySocketServer::cleanUp()
 {
     foreach (quint16 socketAddress, m_tunnelProxySockets.keys()) {
@@ -456,6 +568,13 @@ void TunnelProxySocketServer::cleanUp()
         m_jsonClient = nullptr;
     }
 
+    QProcess *tokenProcess = findChild<QProcess *>(QStringLiteral("registrationTokenProcess"));
+    if (tokenProcess) {
+        tokenProcess->kill();
+        tokenProcess->setObjectName(QString());
+        tokenProcess->deleteLater();
+    }
+
     if (m_connection) {
         m_connection->deleteLater();
         m_connection = nullptr;
@@ -465,6 +584,7 @@ void TunnelProxySocketServer::cleanUp()
     m_remoteProxyServerName.clear();
     m_remoteProxyServerVersion.clear();
     m_remoteProxyApiVersion.clear();
+    setProperty("registrationToken", QString());
 
     setState(StateDisconnected);
 }
