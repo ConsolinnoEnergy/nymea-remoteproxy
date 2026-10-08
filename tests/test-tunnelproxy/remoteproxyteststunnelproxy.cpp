@@ -380,10 +380,10 @@ void RemoteProxyTestsTunnelProxy::sslCertificateChain()
 
         QList<QSslCertificate> servedChain = configuration.sslConfiguration().localCertificateChain();
         QCOMPARE(servedChain.count(), 2);
-        QCOMPARE(servedChain.at(0), QSslCertificate::fromPath(":/test-certificate.crt").first());
+        QCOMPARE(servedChain.at(0), QSslCertificate::fromPath(":/test-chain-leaf.crt").first());
         QCOMPARE(servedChain.at(1), QSslCertificate::fromPath(":/test-intermediate-ca.crt").first());
         // Leaf darf nur genau einmal vorkommen
-        QCOMPARE(servedChain.count(QSslCertificate::fromPath(":/test-certificate.crt").first()), 1);
+        QCOMPARE(servedChain.count(QSslCertificate::fromPath(":/test-chain-leaf.crt").first()), 1);
     }
 
     // Fullchain-Style-Bundle (Leaf + Intermediate): das doppelte Leaf muss
@@ -395,9 +395,9 @@ void RemoteProxyTestsTunnelProxy::sslCertificateChain()
 
         QList<QSslCertificate> servedChain = configuration.sslConfiguration().localCertificateChain();
         QCOMPARE(servedChain.count(), 2);
-        QCOMPARE(servedChain.at(0), QSslCertificate::fromPath(":/test-certificate.crt").first());
+        QCOMPARE(servedChain.at(0), QSslCertificate::fromPath(":/test-chain-leaf.crt").first());
         QCOMPARE(servedChain.at(1), QSslCertificate::fromPath(":/test-intermediate-ca.crt").first());
-        QCOMPARE(servedChain.count(QSslCertificate::fromPath(":/test-certificate.crt").first()), 1);
+        QCOMPARE(servedChain.count(QSslCertificate::fromPath(":/test-chain-leaf.crt").first()), 1);
     }
 }
 
