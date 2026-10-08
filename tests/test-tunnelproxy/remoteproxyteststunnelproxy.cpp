@@ -370,6 +370,37 @@ void RemoteProxyTestsTunnelProxy::configuration()
    QCOMPARE(configuration.loadConfiguration(fileName), success);
 }
 
+void RemoteProxyTestsTunnelProxy::sslCertificateChain()
+{
+    // Chain-Datei mit Zwischenzertifikat (ohne Leaf):
+    // Erwartete Kette: [leaf, intermediate]
+    {
+        ProxyConfiguration configuration;
+        QVERIFY2(configuration.loadConfiguration(":/test-configuration-chain.conf"), "Load chain configuration failed");
+
+        QList<QSslCertificate> servedChain = configuration.sslConfiguration().localCertificateChain();
+        QCOMPARE(servedChain.count(), 2);
+        QCOMPARE(servedChain.at(0), QSslCertificate::fromPath(":/test-certificate.crt").first());
+        QCOMPARE(servedChain.at(1), QSslCertificate::fromPath(":/test-intermediate-ca.crt").first());
+        // Leaf darf nur genau einmal vorkommen
+        QCOMPARE(servedChain.count(QSslCertificate::fromPath(":/test-certificate.crt").first()), 1);
+    }
+
+    // Fullchain-Style-Bundle (Leaf + Intermediate): das doppelte Leaf muss
+    // herausgefiltert werden.
+    // Erwartete Kette: [leaf, intermediate]
+    {
+        ProxyConfiguration configuration;
+        QVERIFY2(configuration.loadConfiguration(":/test-configuration-chain-duplicate-leaf.conf"), "Load duplicate-leaf chain configuration failed");
+
+        QList<QSslCertificate> servedChain = configuration.sslConfiguration().localCertificateChain();
+        QCOMPARE(servedChain.count(), 2);
+        QCOMPARE(servedChain.at(0), QSslCertificate::fromPath(":/test-certificate.crt").first());
+        QCOMPARE(servedChain.at(1), QSslCertificate::fromPath(":/test-intermediate-ca.crt").first());
+        QCOMPARE(servedChain.count(QSslCertificate::fromPath(":/test-certificate.crt").first()), 1);
+    }
+}
+
 void RemoteProxyTestsTunnelProxy::serverPortBlocked()
 {
     cleanUpEngine();

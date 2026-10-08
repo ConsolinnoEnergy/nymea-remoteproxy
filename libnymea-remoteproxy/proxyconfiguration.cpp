@@ -120,9 +120,19 @@ bool ProxyConfiguration::loadConfiguration(const QString &fileName)
         // Lokale Server-Kette: Leaf zuerst, dann die Zwischenzertifikate.
         // Nur so sendet der Server die komplette Kette (inkl. cross-signed
         // Root-Varianten) an die Clients.
+        //
+        // Enthält die Chain-Datei das Leaf-Zertifikat ein zweites Mal (z.B.
+        // bei Fullchain-Bundles oder wie in der Test-Fixture), wird es
+        // herausgefiltert. Andernfalls würde die Kette als [leaf, leaf, ...]
+        // gesendet und von Clients als fehlerhafte Kette abgelehnt.
         QList<QSslCertificate> localCertificateChain;
-        localCertificateChain.append(sslConfiguration.localCertificate());
-        localCertificateChain.append(chainCertificates);
+        const QSslCertificate localCertificate = sslConfiguration.localCertificate();
+        localCertificateChain.append(localCertificate);
+        for (const QSslCertificate &chainCertificate : chainCertificates) {
+            if (chainCertificate != localCertificate) {
+                localCertificateChain.append(chainCertificate);
+            }
+        }
         sslConfiguration.setLocalCertificateChain(localCertificateChain);
         qCDebug(dcApplication()) << "Loaded" << chainCertificates.count() << "certificates from chain file" << sslCertificateChainFileName();
     }

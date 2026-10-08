@@ -48,6 +48,7 @@ private slots:
 
     void configuration_data();
     void configuration();
+    void sslCertificateChain();
 
     void serverPortBlocked();
 
