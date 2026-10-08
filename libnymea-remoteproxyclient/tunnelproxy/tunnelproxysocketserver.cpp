@@ -316,8 +316,8 @@ void TunnelProxySocketServer::onHelloFinished()
 
     setState(StateRegister);
 
-    if (!m_registrationToken.isEmpty()) {
-        JsonReply *registerReply = m_jsonClient->callRegisterServerWithToken(m_serverUuid, m_serverName, m_registrationToken);
+    if (!property("registrationToken").toString().isEmpty()) {
+        JsonReply *registerReply = m_jsonClient->callRegisterServerWithToken(m_serverUuid, m_serverName, property("registrationToken").toString());
         connect(registerReply, &JsonReply::finished, this, &TunnelProxySocketServer::onServerRegistrationFinished);
         return;
     }
@@ -356,7 +356,7 @@ void TunnelProxySocketServer::startTokenProcess()
             return;
         }
 
-        m_registrationToken = token;
+        setProperty("registrationToken", token);
         qCDebug(dcTunnelProxySocketServer()) << "Registration token acquired. Connecting to" << m_serverUrl.toString();
         m_connection->connectServer(m_serverUrl);
     });
@@ -571,7 +571,7 @@ void TunnelProxySocketServer::cleanUp()
     m_remoteProxyServerName.clear();
     m_remoteProxyServerVersion.clear();
     m_remoteProxyApiVersion.clear();
-    m_registrationToken.clear();
+    setProperty("registrationToken", QString());
 
     setState(StateDisconnected);
 }

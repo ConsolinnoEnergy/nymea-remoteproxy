@@ -64,6 +64,37 @@ void JsonRpcPrivacyTest::redactedTopLevelToken()
     QCOMPARE(message.value("serverName").toString(), QStringLiteral("test"));
 }
 
+void JsonRpcPrivacyTest::redactedArrayValuedParams()
+{
+    // Array-valued params: toMap() returns an empty map, the token would
+    // survive a map-only redaction.
+    QByteArray data = "{\"id\":3,\"method\":\"TunnelProxy.RegisterServerWithToken\","
+                      "\"params\":[{\"serverName\":\"test\",\"token\":\"SECRET-JWT\"}]}";
+
+    QByteArray redacted = redactedLogPayload(data);
+
+    QVERIFY2(!redacted.contains("SECRET-JWT"), "A token inside array-valued params must not appear in the log output");
+    QVERIFY(redacted.contains("[redacted]"));
+
+    QVariantMap message = QJsonDocument::fromJson(redacted).toVariant().toMap();
+    QVariantList params = message.value("params").toList();
+    QCOMPARE(params.count(), 1);
+    QCOMPARE(params.first().toMap().value("token").toString(), QStringLiteral("[redacted]"));
+    QCOMPARE(params.first().toMap().value("serverName").toString(), QStringLiteral("test"));
+}
+
+void JsonRpcPrivacyTest::redactedNestedToken()
+{
+    // Token nested deeper (e.g. inside an object within params)
+    QByteArray data = "{\"id\":4,\"method\":\"Some.Method\","
+                      "\"params\":{\"data\":{\"list\":[{\"token\":\"SECRET-JWT\"}]}}}";
+
+    QByteArray redacted = redactedLogPayload(data);
+
+    QVERIFY2(!redacted.contains("SECRET-JWT"), "A deeply nested token must not appear in the log output");
+    QVERIFY(redacted.contains("[redacted]"));
+}
+
 void JsonRpcPrivacyTest::redactParamsTokensVariantMap()
 {
     // Nested: params.token

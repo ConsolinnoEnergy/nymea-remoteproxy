@@ -95,8 +95,13 @@ public:
     // Pack methods
 
     // Validation methods
-    static QPair<bool, QString> validateMap(const QVariantMap &templateMap, const QVariantMap &map, bool hideValues = false);
-    static QPair<bool, QString> validateVariant(const QVariant &templateVariant, const QVariant &variant, bool hideValues = false);
+    // Note: the two-argument overloads are kept out-of-line for ABI
+    // compatibility (the defaults would otherwise replace the exported
+    // symbols on a library-only upgrade).
+    static QPair<bool, QString> validateMap(const QVariantMap &templateMap, const QVariantMap &map);
+    static QPair<bool, QString> validateMap(const QVariantMap &templateMap, const QVariantMap &map, bool hideValues);
+    static QPair<bool, QString> validateVariant(const QVariant &templateVariant, const QVariant &variant);
+    static QPair<bool, QString> validateVariant(const QVariant &templateVariant, const QVariant &variant, bool hideValues);
     static QPair<bool, QString> validateEnum(const QVariantList &enumList, const QVariant &value);
     static QPair<bool, QString> validateProperty(const QVariant &templateValue, const QVariant &value);
     static QPair<bool, QString> validateList(const QVariantList &templateList, const QVariantList &list);

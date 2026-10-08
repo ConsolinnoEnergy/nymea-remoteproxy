@@ -39,6 +39,8 @@ class JsonRpcPrivacyTest : public QObject
 private slots:
     void redactedParamsToken();
     void redactedTopLevelToken();
+    void redactedArrayValuedParams();
+    void redactedNestedToken();
     void redactParamsTokensVariantMap();
     void fragmentedPayloadPlaceholder();
     void cleanPayloadUntouched();

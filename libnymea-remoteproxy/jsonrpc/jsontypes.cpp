@@ -67,6 +67,12 @@ void JsonTypes::init()
 }
 
 
+QPair<bool, QString> JsonTypes::validateMap(const QVariantMap &templateMap, const QVariantMap &map)
+{
+    // ABI-compatible overload, forwards to the hideValues variant
+    return validateMap(templateMap, map, false);
+}
+
 QPair<bool, QString> JsonTypes::validateMap(const QVariantMap &templateMap, const QVariantMap &map, bool hideValues)
 {
     s_lastError.clear();
@@ -108,6 +114,12 @@ QPair<bool, QString> JsonTypes::validateMap(const QVariantMap &templateMap, cons
     }
 
     return report(true, "");
+}
+
+QPair<bool, QString> JsonTypes::validateVariant(const QVariant &templateVariant, const QVariant &variant)
+{
+    // ABI-compatible overload, forwards to the hideValues variant
+    return validateVariant(templateVariant, variant, false);
 }
 
 QPair<bool, QString> JsonTypes::validateVariant(const QVariant &templateVariant, const QVariant &variant, bool hideValues)

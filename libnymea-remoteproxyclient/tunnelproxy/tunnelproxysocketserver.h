@@ -156,7 +156,10 @@ private:
 
     ProxyConnection *m_connection = nullptr;
     JsonRpcClient *m_jsonClient = nullptr;
-    QString m_registrationToken;
+    // Note: the registration token is kept as a dynamic QObject property
+    // ("registrationToken") instead of a member, since adding a member
+    // would change the class layout and break the ABI of the installed
+    // libnymea-remoteproxyclient.so.1.
 
     QHash<quint16, TunnelProxySocket *> m_tunnelProxySockets;
 

@@ -20,21 +20,44 @@ namespace remoteproxy {
 //    params ("params.token" and a top-level "token") redacted
 //  - fragmented or invalid data is represented by a placeholder without
 //    content, since any fragment may contain (part of) a credential
-// Variant-map redaction: replaces credential-bearing params in
-// already-parsed JSON-RPC messages. Redacts the nested "params.token"
-// as well as a top-level "token", since some callers pass flat
-// parameter objects and a TCP fragment may contain exactly the inner
-// parameters object.
+// Variant-map/variant redaction: replaces credential-bearing "token"
+// keys in already-parsed JSON-RPC messages. Redacts recursively, so it
+// covers "params.token", a top-level "token" (flat parameter objects),
+// and tokens inside array-valued params (e.g. {"params":[{"token":...}]}).
+inline QVariant redactTokenValues(const QVariant &value)
+{
+    if (value.type() == QVariant::Map) {
+        QVariantMap map = value.toMap();
+        for (const QString &key : map.keys()) {
+            if (key == QStringLiteral("token")) {
+                map.insert(key, QStringLiteral("[redacted]"));
+            } else {
+                map.insert(key, redactTokenValues(map.value(key)));
+            }
+        }
+        return map;
+    }
+    if (value.type() == QVariant::List) {
+        QVariantList list = value.toList();
+        for (int i = 0; i < list.count(); ++i) {
+            list.replace(i, redactTokenValues(list.at(i)));
+        }
+        return list;
+    }
+    return value;
+}
+
 inline QVariantMap redactParamsTokens(const QVariantMap &message)
 {
     QVariantMap redacted = message;
-    if (redacted.contains("token")) {
-        redacted.insert("token", QStringLiteral("[redacted]"));
+    if (redacted.contains(QStringLiteral("token"))) {
+        redacted.insert(QStringLiteral("token"), QStringLiteral("[redacted]"));
     }
-    QVariantMap params = redacted.value("params").toMap();
-    if (params.contains("token")) {
-        params.insert("token", QStringLiteral("[redacted]"));
-        redacted.insert("params", params);
+    for (const QString &key : redacted.keys()) {
+        if (key == QStringLiteral("token")) {
+            continue;
+        }
+        redacted.insert(key, redactTokenValues(redacted.value(key)));
     }
     return redacted;
 }
