@@ -17,14 +17,20 @@ namespace remoteproxy {
 //
 // Returns a logging-safe copy of the given raw payload:
 //  - complete JSON messages are re-serialized with credential-bearing
-//    params (currently "params.token") redacted
+//    params ("params.token" and a top-level "token") redacted
 //  - fragmented or invalid data is represented by a placeholder without
 //    content, since any fragment may contain (part of) a credential
-// Variant-map redaction: replaces credential-bearing params (currently
-// "params.token") in already-parsed JSON-RPC messages.
+// Variant-map redaction: replaces credential-bearing params in
+// already-parsed JSON-RPC messages. Redacts the nested "params.token"
+// as well as a top-level "token", since some callers pass flat
+// parameter objects and a TCP fragment may contain exactly the inner
+// parameters object.
 inline QVariantMap redactParamsTokens(const QVariantMap &message)
 {
     QVariantMap redacted = message;
+    if (redacted.contains("token")) {
+        redacted.insert("token", QStringLiteral("[redacted]"));
+    }
     QVariantMap params = redacted.value("params").toMap();
     if (params.contains("token")) {
         params.insert("token", QStringLiteral("[redacted]"));
