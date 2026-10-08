@@ -1,5 +1,6 @@
 CONFIG += testcase
 QT += testlib
+QT -= gui
 
 INCLUDEPATH += ../../libnymea-remoteproxy
 
