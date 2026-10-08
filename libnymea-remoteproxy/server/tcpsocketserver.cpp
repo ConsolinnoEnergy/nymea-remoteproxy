@@ -26,6 +26,7 @@
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "tcpsocketserver.h"
+#include "jsonrpcprivacy.h"
 #include "loggingcategories.h"
 
 namespace remoteproxy {
@@ -219,7 +220,7 @@ void SslServer::incomingConnection(qintptr socketDescriptor)
             return;
 
         QByteArray data = sslSocket->readAll();
-        qCDebug(dcTcpSocketServerTraffic()) << "Data from socket" << sslSocket->peerAddress().toString() << data;
+        qCDebug(dcTcpSocketServerTraffic()) << "Data from socket" << sslSocket->peerAddress().toString() << qUtf8Printable(redactedLogPayload(data));
         emit dataAvailable(sslSocket, data);
     });
 

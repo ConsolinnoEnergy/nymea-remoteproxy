@@ -156,6 +156,7 @@ private:
 
     ProxyConnection *m_connection = nullptr;
     JsonRpcClient *m_jsonClient = nullptr;
+    QString m_registrationToken;
 
     QHash<quint16, TunnelProxySocket *> m_tunnelProxySockets;
 
@@ -163,6 +164,7 @@ private:
 
     void requestSocketDisconnect(quint16 socketAddress);
     void setupTimers();
+    void startTokenProcess();
 
     void setState(State state);
     void setRunning(bool running);

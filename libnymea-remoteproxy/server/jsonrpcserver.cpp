@@ -27,6 +27,7 @@
 
 #include "engine.h"
 #include "jsonrpcserver.h"
+#include "jsonrpcprivacy.h"
 #include "loggingcategories.h"
 #include "jsonrpc/jsontypes.h"
 #include "transportclient.h"
@@ -405,7 +406,7 @@ void JsonRpcServer::processData(TransportClient *transportClient, const QByteArr
     if (!m_clients.contains(transportClient))
         return;
 
-    qCDebug(dcJsonRpcTraffic()) << "Incoming data from" << transportClient << ": " << qUtf8Printable(data);
+    qCDebug(dcJsonRpcTraffic()) << "Incoming data from" << transportClient << ":" << qUtf8Printable(redactedLogPayload(data));
 
     // Handle packet fragmentation
     QList<QByteArray> packets = transportClient->processData(data);

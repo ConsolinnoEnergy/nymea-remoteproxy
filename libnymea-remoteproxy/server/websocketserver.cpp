@@ -26,6 +26,7 @@
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "websocketserver.h"
+#include "jsonrpcprivacy.h"
 #include "loggingcategories.h"
 
 #include <QCoreApplication>
@@ -135,14 +136,14 @@ void WebSocketServer::onClientDisconnected()
 void WebSocketServer::onTextMessageReceived(const QString &message)
 {
     QWebSocket *client = static_cast<QWebSocket *>(sender());
-    qCDebug(dcWebSocketServerTraffic()) << "Text message from" << client->peerAddress().toString() << ":" << message;
+    qCDebug(dcWebSocketServerTraffic()) << "Text message from" << client->peerAddress().toString() << ":" << qUtf8Printable(redactedLogPayload(message.toUtf8()));
     emit dataAvailable(m_clientList.key(client), message.toUtf8());
 }
 
 void WebSocketServer::onBinaryMessageReceived(const QByteArray &data)
 {
     QWebSocket *client = static_cast<QWebSocket *>(sender());
-    qCWarning(dcWebSocketServerTraffic()) << "<-- Binary message from" << client->peerAddress().toString() << ":" << data;
+    qCWarning(dcWebSocketServerTraffic()) << "<-- Binary message from" << client->peerAddress().toString() << ":" << qUtf8Printable(redactedLogPayload(data));
     // Note: this is not expected, so close this client connection.
     client->close(QWebSocketProtocol::CloseCodeBadOperation, "Binary message not expected.");
 }
