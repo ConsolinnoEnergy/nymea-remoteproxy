@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 #include "jwtverifier.h"
+#include "loggingcategories.h"
 
 #include <QDateTime>
 #include <QFile>
@@ -19,6 +20,12 @@
 
 namespace remoteproxy {
 namespace {
+
+// The JWKS file is provisioned by the deployment and does not change while
+// the process is running. Keep the parsed keys in memory instead of reading
+// and parsing the file for every registration request.
+QJsonArray s_jwksKeys;
+bool s_jwksLoaded = false;
 
 bool decodeBase64Url(const QString &encodedText, QByteArray *decoded)
 {
@@ -162,9 +169,29 @@ bool verifyRsaSha256(const QByteArray &signingInput, const QByteArray &signature
     return verifyResult == 1;
 }
 
+bool loadJwksFile(const QString &jwksFilePath, QJsonArray *keys)
+{
+    QFile jwksFile(jwksFilePath);
+    if (!jwksFile.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+
+    QJsonParseError jwksError;
+    const QJsonDocument jwksDocument = QJsonDocument::fromJson(jwksFile.readAll(), &jwksError);
+    if (jwksError.error != QJsonParseError::NoError || !jwksDocument.isObject()) {
+        return false;
+    }
+
+    const QJsonValue keysValue = jwksDocument.object().value("keys");
+    if (!keysValue.isArray()) {
+        return false;
+    }
+
+    *keys = keysValue.toArray();
+    return true;
 }
 
-bool verifyJwt(const QString &token, const QString &jwksFilePath)
+bool verifyJwtWithKeys(const QString &token, const QJsonArray &keys)
 {
     const QStringList parts = token.split(QLatin1Char('.'));
     if (parts.size() != 3 || parts.at(0).isEmpty() || parts.at(1).isEmpty() || parts.at(2).isEmpty()) {
@@ -186,18 +213,6 @@ bool verifyJwt(const QString &token, const QString &jwksFilePath)
         return false;
     }
 
-    QFile jwksFile(jwksFilePath);
-    if (!jwksFile.open(QIODevice::ReadOnly)) {
-        return false;
-    }
-
-    QJsonParseError jwksError;
-    const QJsonDocument jwksDocument = QJsonDocument::fromJson(jwksFile.readAll(), &jwksError);
-    if (jwksError.error != QJsonParseError::NoError || !jwksDocument.isObject()) {
-        return false;
-    }
-
-    const QJsonArray keys = jwksDocument.object().value("keys").toArray();
     const QString keyId = header.value("kid").toString();
     const QJsonArray candidateKeys = selectRsaKeys(keys, keyId);
     if (candidateKeys.isEmpty() || (!keyId.isEmpty() && candidateKeys.size() != 1)) {
@@ -216,6 +231,43 @@ bool verifyJwt(const QString &token, const QString &jwksFilePath)
     }
 
     return matchingSignatures == 1;
+}
+
+}
+
+bool loadJwks(const QString &jwksFilePath)
+{
+    QJsonArray keys;
+    if (!loadJwksFile(jwksFilePath, &keys)) {
+        s_jwksKeys = QJsonArray();
+        s_jwksLoaded = false;
+        qCWarning(dcTunnelProxyServer()) << "Could not load JWKS file" << jwksFilePath;
+        return false;
+    }
+
+    s_jwksKeys = keys;
+    s_jwksLoaded = true;
+    qCDebug(dcTunnelProxyServer()) << "Loaded" << keys.size() << "JWKS key(s) from" << jwksFilePath;
+    return true;
+}
+
+bool verifyJwt(const QString &token)
+{
+    if (!s_jwksLoaded) {
+        return false;
+    }
+
+    return verifyJwtWithKeys(token, s_jwksKeys);
+}
+
+bool verifyJwt(const QString &token, const QString &jwksFilePath)
+{
+    QJsonArray keys;
+    if (!loadJwksFile(jwksFilePath, &keys)) {
+        return false;
+    }
+
+    return verifyJwtWithKeys(token, keys);
 }
 
 }

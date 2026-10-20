@@ -30,6 +30,7 @@
 #include "jsonrpc/jsonrpcprivacy.h"
 
 #include "jsonrpc/tunnelproxyhandler.h"
+#include "jwtverifier.h"
 #include "tunnelproxyserverconnection.h"
 #include "tunnelproxyclientconnection.h"
 
@@ -283,6 +284,12 @@ QVariantMap TunnelProxyServer::currentStatistics(bool printAll)
 void TunnelProxyServer::startServer()
 {
     qCDebug(dcTunnelProxyServer()) << "Starting tunnel proxy...";
+
+    // The JWKS file is part of the deployment and does not change while the
+    // server is running. Load it once at startup and keep it in memory so
+    // registration requests don't have to read and parse it every time.
+    loadJwks();
+
     foreach (TransportInterface *interface, m_transportInterfaces) {
         interface->startServer();
     }

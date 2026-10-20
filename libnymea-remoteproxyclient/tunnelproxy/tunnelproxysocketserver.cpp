@@ -406,6 +406,12 @@ void TunnelProxySocketServer::onServerRegistrationFinished()
     }
 
     qCDebug(dcTunnelProxySocketServer()) << "Registered successfully as tunnel server on the remote proxy server.";
+
+    // The token is only needed for the registration handshake. Drop it from
+    // memory once registration succeeded; a reconnect fetches a fresh token
+    // in startServer().
+    setProperty("registrationToken", QString());
+
     setState(StateRunning);
     m_serverError = ErrorNoError;
 }

@@ -46,6 +46,7 @@
 #include <memory>
 
 #include <openssl/bn.h>
+#include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
 
@@ -758,11 +759,21 @@ void RemoteProxyTestsTunnelProxy::jwtVerifier()
                             static_cast<size_t>(signingInputWithoutKeyId.size())), 1);
     noKeyIdSignature.resize(static_cast<int>(noKeyIdSignatureSize));
     const QByteArray tokenWithoutKeyId = signingInputWithoutKeyId + '.' + encodeBase64Url(noKeyIdSignature).toLatin1();
+    ERR_clear_error();
     QVERIFY(remoteproxy::verifyJwt(QString::fromLatin1(tokenWithoutKeyId), jwksFile.fileName()));
+    QCOMPARE(ERR_peek_error(), 0UL);
 
     signature[0] = static_cast<char>(signature.at(0) ^ 0x01);
     const QByteArray tamperedToken = signingInput + '.' + encodeBase64Url(signature).toLatin1();
     QVERIFY(!remoteproxy::verifyJwt(QString::fromLatin1(tamperedToken), jwksFile.fileName()));
+
+    // The JWKS is loaded once at startup and cached in memory. Removing the
+    // file afterwards must not affect verification.
+    QVERIFY(remoteproxy::loadJwks(jwksFile.fileName()));
+    QVERIFY(remoteproxy::verifyJwt(QString::fromLatin1(token)));
+    QVERIFY(QFile::remove(jwksFile.fileName()));
+    QVERIFY(remoteproxy::verifyJwt(QString::fromLatin1(token)));
+    QVERIFY(!remoteproxy::verifyJwt(QString::fromLatin1(tamperedToken)));
 }
 
 void RemoteProxyTestsTunnelProxy::jwtVerifierNegative_data()
