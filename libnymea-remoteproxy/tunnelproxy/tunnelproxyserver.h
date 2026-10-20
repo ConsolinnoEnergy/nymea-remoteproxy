@@ -51,7 +51,8 @@ public:
         TunnelProxyErrorForbiddenCall,
         TunnelProxyErrorAlreadyRegistered,
         TunnelProxyErrorNotRegistered,
-        TunnelProxyErrorUnknownSocketAddress
+        TunnelProxyErrorUnknownSocketAddress,
+        TunnelProxyErrorAuthenticationFailed
     };
     Q_ENUM(TunnelProxyError)
 

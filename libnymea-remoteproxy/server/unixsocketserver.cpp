@@ -26,6 +26,7 @@
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "unixsocketserver.h"
+#include "jsonrpc/jsonrpcprivacy.h"
 
 #include <QFile>
 
@@ -143,7 +144,7 @@ void UnixSocketServer::onClientConnected()
     });
     connect(client, &QLocalSocket::readyRead, this, [this, client, clientId](){
         QByteArray data = client->readAll();
-        qCDebug(dcUnixSocketServerTraffic()) << "Incomming data from" << clientId.toString() << data;
+        qCDebug(dcUnixSocketServerTraffic()) << "Incomming data from" << clientId.toString() << qUtf8Printable(redactedLogPayload(data));
         emit dataAvailable(clientId, data);
     });
 

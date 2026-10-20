@@ -9,3 +9,4 @@ tests/test-online/nymea-remoteproxy-tests-online
 .crossbuilder/
 source_repository/
 *.gcno
+tests/resources/*.srl

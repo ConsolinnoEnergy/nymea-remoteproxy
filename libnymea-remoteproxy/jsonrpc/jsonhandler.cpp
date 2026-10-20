@@ -90,7 +90,7 @@ bool JsonHandler::hasMethod(const QString &methodName)
 QPair<bool, QString> JsonHandler::validateParams(const QString &methodName, const QVariantMap &params)
 {
     QVariantMap paramTemplate = m_params.value(methodName);
-    return JsonTypes::validateMap(paramTemplate, params);
+    return JsonTypes::validateMap(paramTemplate, params, true);
 }
 
 QPair<bool, QString> JsonHandler::validateReturns(const QString &methodName, const QVariantMap &returns)

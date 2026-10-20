@@ -4,6 +4,11 @@
     <file>test-certificate.key</file>
     <file>test-configuration.conf</file>
     <file>test-configuration-chain.conf</file>
+    <file>test-configuration-chain-duplicate-leaf.conf</file>
+    <file>test-intermediate-ca.crt</file>
+    <file>test-chain-leaf.crt</file>
+    <file>test-chain-leaf.key</file>
+    <file>test-chain-fullchain-bundle.crt</file>
     <file>test-configuration-faulty-certificate.conf</file>
     <file>test-configuration-faulty-key.conf</file>
     <file>test-configuration-faulty-chain.conf</file>
