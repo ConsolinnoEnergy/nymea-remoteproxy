@@ -177,7 +177,10 @@ void TunnelProxyRemoteConnection::onConnectionChanged(bool connected)
 void TunnelProxyRemoteConnection::onConnectionDataAvailable(const QByteArray &data)
 {
     if (m_state != StateRemoteConnected) {
-        m_jsonClient->processData(data);
+        // Late data from an already cleaned up connection must not be processed
+        if (m_jsonClient) {
+            m_jsonClient->processData(data);
+        }
         return;
     }
 
@@ -301,6 +304,8 @@ void TunnelProxyRemoteConnection::cleanUp()
     }
 
     if (m_connection) {
+        // The connection is only deleted later, don't let it call into us any more
+        m_connection->disconnect(this);
         m_connection->deleteLater();
         m_connection = nullptr;
     }
