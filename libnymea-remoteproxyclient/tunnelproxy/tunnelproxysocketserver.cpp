@@ -235,7 +235,10 @@ void TunnelProxySocketServer::onConnectionDataAvailable(const QByteArray &data)
     m_keepAliveTimer.start();
 
     if (m_state != StateRunning) {
-        m_jsonClient->processData(data);
+        // Late data from an already cleaned up connection must not be processed
+        if (m_jsonClient) {
+            m_jsonClient->processData(data);
+        }
         m_dataBuffer.clear();
         return;
     }
@@ -255,7 +258,9 @@ void TunnelProxySocketServer::onConnectionDataAvailable(const QByteArray &data)
                 SlipDataProcessor::Frame frame = SlipDataProcessor::parseFrame(frameData);
                 qCDebug(dcTunnelProxySocketServerTraffic()) << "Frame received" << frame.socketAddress << qUtf8Printable(frame.data);
                 if (frame.socketAddress == 0x0000) {
-                    m_jsonClient->processData(frame.data);
+                    if (m_jsonClient) {
+                        m_jsonClient->processData(frame.data);
+                    }
                 } else {
                     // Find the socket and emit the data received signal
                     TunnelProxySocket *tunnlProxySocket = m_tunnelProxySockets.value(frame.socketAddress);
@@ -582,6 +587,8 @@ void TunnelProxySocketServer::cleanUp()
     }
 
     if (m_connection) {
+        // The connection is only deleted later, don't let it call into us any more
+        m_connection->disconnect(this);
         m_connection->deleteLater();
         m_connection = nullptr;
     }
