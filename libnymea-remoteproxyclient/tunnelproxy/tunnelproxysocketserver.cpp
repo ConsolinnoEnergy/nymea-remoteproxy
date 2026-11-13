@@ -35,6 +35,12 @@
 #include <QFileInfo>
 #include <QProcess>
 
+// Token retrieval via helper process is not available on platforms without
+// process support (e.g. iOS, WebAssembly)
+#if QT_CONFIG(process)
+#define NYMEA_PROXY_TOKEN_PROCESS 1
+#endif
+
 Q_LOGGING_CATEGORY(dcTunnelProxySocketServer, "TunnelProxySocketServer")
 Q_LOGGING_CATEGORY(dcTunnelProxySocketServerTraffic, "TunnelProxySocketServerTraffic")
 
@@ -155,6 +161,7 @@ bool TunnelProxySocketServer::startServer(const QUrl &serverUrl)
     // Token-based registration: the token is fetched BEFORE connecting, so
     // the proxy-side registration deadline (which starts when the connection
     // is created) is not consumed by the token retrieval.
+#ifdef NYMEA_PROXY_TOKEN_PROCESS
     const QString tokenScriptPath = QStringLiteral("/usr/bin/get_token");
     if (QFileInfo::exists(tokenScriptPath)) {
         // The token is a credential that can be replayed until it expires:
@@ -176,6 +183,7 @@ bool TunnelProxySocketServer::startServer(const QUrl &serverUrl)
         startTokenProcess();
         return true;
     }
+#endif
 
     qCDebug(dcTunnelProxySocketServer()) << "Connecting to" << m_serverUrl.toString();
     m_connection->connectServer(m_serverUrl);
@@ -196,12 +204,14 @@ void TunnelProxySocketServer::stopServer()
     // cleanUp(). Detach first, so a subsequent failure/timeout of the
     // killed helper cannot emit a spurious connection error after an
     // intentional stop.
+#ifdef NYMEA_PROXY_TOKEN_PROCESS
     QProcess *tokenProcess = findChild<QProcess *>(QStringLiteral("registrationTokenProcess"));
     if (tokenProcess) {
         tokenProcess->setObjectName(QString());
         tokenProcess->kill();
         tokenProcess->deleteLater();
     }
+#endif
 
     if (m_connection) {
         qCDebug(dcTunnelProxySocketServer()) << "Disconnecting from" << m_connection->serverUrl().toString();
@@ -344,6 +354,7 @@ void TunnelProxySocketServer::onHelloFinished()
     connect(registerReply, &JsonReply::finished, this, &TunnelProxySocketServer::onServerRegistrationFinished);
 }
 
+#ifdef NYMEA_PROXY_TOKEN_PROCESS
 void TunnelProxySocketServer::startTokenProcess()
 {
     const QString tokenScriptPath = QStringLiteral("/usr/bin/get_token");
@@ -386,6 +397,7 @@ void TunnelProxySocketServer::startTokenProcess()
         }
     });
 }
+#endif
 
 void TunnelProxySocketServer::onServerRegistrationFinished()
 {
@@ -547,6 +559,7 @@ void TunnelProxySocketServer::setServerError(Error error)
     emit serverErrorOccurred(m_serverError);
 }
 
+#ifdef NYMEA_PROXY_TOKEN_PROCESS
 void TunnelProxySocketServer::onTokenProcessFailed(QProcess *process, const QString &reason)
 {
     if (findChild<QProcess *>(QStringLiteral("registrationTokenProcess")) != process) {
@@ -567,6 +580,7 @@ void TunnelProxySocketServer::onTokenProcessFailed(QProcess *process, const QStr
         m_reconnectTimer.start();
     }
 }
+#endif
 
 void TunnelProxySocketServer::cleanUp()
 {
@@ -579,12 +593,14 @@ void TunnelProxySocketServer::cleanUp()
         m_jsonClient = nullptr;
     }
 
+#ifdef NYMEA_PROXY_TOKEN_PROCESS
     QProcess *tokenProcess = findChild<QProcess *>(QStringLiteral("registrationTokenProcess"));
     if (tokenProcess) {
         tokenProcess->kill();
         tokenProcess->setObjectName(QString());
         tokenProcess->deleteLater();
     }
+#endif
 
     if (m_connection) {
         // The connection is only deleted later, don't let it call into us any more
